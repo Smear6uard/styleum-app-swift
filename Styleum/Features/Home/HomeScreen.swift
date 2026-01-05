@@ -15,7 +15,6 @@ struct HomeScreen: View {
                         Text(timeOfDayGreeting)
                             .font(AppTypography.displayMedium)
 
-                        // Weather - monochrome
                         HStack(spacing: 6) {
                             Image(systemName: "sun.max")
                                 .font(.system(size: 14, weight: .medium))
@@ -53,7 +52,6 @@ struct HomeScreen: View {
                             .foregroundColor(AppColors.textPrimary)
                     }
 
-                    // Progress bar
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Rectangle()
@@ -90,7 +88,6 @@ struct HomeScreen: View {
                         SkeletonCard()
                             .frame(height: 200)
                     } else {
-                        // Empty state
                         VStack(spacing: AppSpacing.md) {
                             Image(systemName: "square.stack")
                                 .font(.system(size: 40, weight: .light))
@@ -104,7 +101,6 @@ struct HomeScreen: View {
                                 .foregroundColor(AppColors.textSecondary)
                                 .multilineTextAlignment(.center)
 
-                            // Black CTA
                             Button {
                                 coordinator.switchTab(to: .styleMe)
                             } label: {
@@ -143,23 +139,27 @@ struct HomeScreen: View {
                     }
                 }
 
-                // Stats row - monochrome, no emojis
-                HStack(spacing: 0) {
-                    StatItem(value: "\(profileService.currentProfile?.currentStreak ?? 0)", label: "Day Streak")
+                // Wardrobe Insights (replaces redundant streak stats)
+                VStack(alignment: .leading, spacing: AppSpacing.md) {
+                    Text("WARDROBE INSIGHTS")
+                        .font(AppTypography.kicker)
+                        .foregroundColor(AppColors.textMuted)
+                        .tracking(1)
 
-                    Divider()
-                        .frame(height: 40)
+                    HStack(spacing: AppSpacing.md) {
+                        InsightCard(
+                            value: "\(wardrobeService.items.count)",
+                            label: "Items",
+                            detail: categoryBreakdown
+                        )
 
-                    StatItem(value: "\(wardrobeService.items.count)", label: "Items")
-
-                    Divider()
-                        .frame(height: 40)
-
-                    StatItem(value: "\(outfitRepo.todaysOutfits.count)", label: "Outfits")
+                        InsightCard(
+                            value: mostWornCount,
+                            label: "Most Worn",
+                            detail: mostWornItem
+                        )
+                    }
                 }
-                .padding(.vertical, AppSpacing.md)
-                .background(AppColors.backgroundSecondary)
-                .cornerRadius(AppSpacing.radiusMd)
             }
             .padding(AppSpacing.pageMargin)
         }
@@ -187,25 +187,55 @@ struct HomeScreen: View {
 
     private var streakProgress: CGFloat {
         let streak = profileService.currentProfile?.currentStreak ?? 0
-        // Progress toward 7-day goal
         return min(CGFloat(streak) / 7.0, 1.0)
+    }
+
+    private var categoryBreakdown: String {
+        let categories = Set(wardrobeService.items.compactMap { $0.category?.displayName })
+        return "\(categories.count) categories"
+    }
+
+    private var mostWornItem: String {
+        guard let item = wardrobeService.items.max(by: { $0.timesWorn < $1.timesWorn }),
+              item.timesWorn > 0 else {
+            return "No data yet"
+        }
+        return item.itemName ?? item.category?.displayName ?? "Item"
+    }
+
+    private var mostWornCount: String {
+        guard let item = wardrobeService.items.max(by: { $0.timesWorn < $1.timesWorn }),
+              item.timesWorn > 0 else {
+            return "—"
+        }
+        return "\(item.timesWorn)x"
     }
 }
 
-// MARK: - Stat Item (no emoji)
-struct StatItem: View {
+// MARK: - Insight Card
+struct InsightCard: View {
     let value: String
     let label: String
+    let detail: String
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(value)
-                .font(AppTypography.titleLarge)
+                .font(AppTypography.displaySmall)
+
             Text(label)
+                .font(AppTypography.labelMedium)
+                .foregroundColor(AppColors.textPrimary)
+
+            Text(detail)
                 .font(AppTypography.bodySmall)
-                .foregroundColor(AppColors.textSecondary)
+                .foregroundColor(AppColors.textMuted)
+                .lineLimit(1)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(AppSpacing.md)
+        .background(AppColors.backgroundSecondary)
+        .cornerRadius(AppSpacing.radiusMd)
     }
 }
 
@@ -240,7 +270,6 @@ struct TodaysOutfitCard: View {
 
     var body: some View {
         VStack(spacing: AppSpacing.md) {
-            // Outfit preview images
             HStack(spacing: AppSpacing.sm) {
                 ForEach(outfit.wardrobeItemIds.prefix(3), id: \.self) { itemId in
                     if let item = wardrobeService.items.first(where: { $0.id == itemId }) {
@@ -262,7 +291,6 @@ struct TodaysOutfitCard: View {
                 .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
 
-            // Black CTA
             Button {
                 Task {
                     try? await OutfitRepository.shared.markAsWorn(outfit)

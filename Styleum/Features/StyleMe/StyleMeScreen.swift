@@ -3,13 +3,13 @@ import SwiftUI
 struct StyleMeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
     @State private var wardrobeService = WardrobeService.shared
-    @State private var isGenerating = false
+    @State private var outfitRepo = OutfitRepository.shared
+    @State private var notificationManager = NotificationManager.shared
 
     var body: some View {
         VStack(spacing: 0) {
             // Header with weather top-left
             HStack {
-                // Weather - monochrome, top left
                 HStack(spacing: 6) {
                     Image(systemName: "sun.max")
                         .font(.system(size: 14, weight: .medium))
@@ -33,8 +33,13 @@ struct StyleMeScreen: View {
 
             Spacer()
 
-            // Main content - centered
+            // Main content
             VStack(spacing: AppSpacing.lg) {
+                if outfitRepo.isGenerating {
+                    GeneratingIndicator()
+                        .padding(.bottom, AppSpacing.md)
+                }
+
                 Text("What should I\nwear today?")
                     .font(AppTypography.displayLarge)
                     .multilineTextAlignment(.center)
@@ -45,11 +50,10 @@ struct StyleMeScreen: View {
                     .multilineTextAlignment(.center)
 
                 VStack(spacing: AppSpacing.sm) {
-                    // Black CTA - no sparkle icon
                     Button {
                         generateOutfit()
                     } label: {
-                        Text("Style Me")
+                        Text(outfitRepo.isGenerating ? "Creating..." : "Style Me")
                             .font(AppTypography.labelLarge)
                             .foregroundColor(.white)
                             .frame(width: 200)
@@ -58,8 +62,8 @@ struct StyleMeScreen: View {
                             .cornerRadius(AppSpacing.radiusMd)
                     }
                     .buttonStyle(ScaleButtonStyle())
-                    .disabled(!wardrobeService.hasEnoughForOutfits || isGenerating)
-                    .opacity(wardrobeService.hasEnoughForOutfits ? 1 : 0.5)
+                    .disabled(!wardrobeService.hasEnoughForOutfits || outfitRepo.isGenerating)
+                    .opacity(wardrobeService.hasEnoughForOutfits && !outfitRepo.isGenerating ? 1 : 0.5)
 
                     Button("Customize") {
                         coordinator.present(.customizeStyleMe)
@@ -82,13 +86,16 @@ struct StyleMeScreen: View {
             Spacer()
 
             // Daily quote at bottom
-            Text(StyleQuotes.todaysQuote)
-                .font(AppTypography.bodySmall)
-                .italic()
-                .foregroundColor(AppColors.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, AppSpacing.xl)
-                .padding(.bottom, AppSpacing.xl)
+            VStack(spacing: 4) {
+                Text("\u{201E}\(StyleQuotes.todaysQuote)\u{201C}")
+                    .font(.system(size: 14, weight: .regular, design: .serif))
+                    .italic()
+                    .foregroundColor(AppColors.textMuted)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
+            .padding(.horizontal, AppSpacing.xl)
+            .padding(.bottom, AppSpacing.xl)
         }
         .background(AppColors.background)
         .navigationBarHidden(true)
@@ -98,24 +105,20 @@ struct StyleMeScreen: View {
     }
 
     private func generateOutfit() {
-        isGenerating = true
         HapticManager.shared.medium()
 
-        coordinator.presentFullScreen(.aiProcessing)
-
-        Task {
-            await OutfitRepository.shared.generateOutfits()
-            isGenerating = false
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                coordinator.dismissFullScreen()
-                coordinator.presentFullScreen(.outfitResults)
+        outfitRepo.generateOutfitsInBackground {
+            if !outfitRepo.todaysOutfits.isEmpty {
+                notificationManager.show(
+                    .outfitReady {
+                        coordinator.presentFullScreen(.outfitResults)
+                    }
+                )
             }
         }
     }
 }
 
-// MARK: - Style Quotes
 enum StyleQuotes {
     static let quotes = [
         "The best style is the one you don't notice.",
@@ -132,22 +135,12 @@ enum StyleQuotes {
         "Style is the perfection of a point of view.",
         "The joy of dressing is an art.",
         "Create your own style. Let it be unique.",
-        "Style is something each of us already has.",
         "When in doubt, wear black.",
         "People will stare. Make it worth their while.",
         "Fashion is what you buy, style is what you do with it.",
-        "A girl should be two things: classy and fabulous.",
-        "Clothes aren't going to change the world. The women who wear them will.",
-        "Style is the only thing you can't buy.",
-        "The best color in the whole world is the one that looks good on you.",
-        "Fashion is about dressing according to what's fashionable. Style is more about being yourself.",
-        "I don't do fashion, I am fashion.",
-        "In order to be irreplaceable one must always be different.",
-        "Give a girl the right shoes and she can conquer the world.",
         "Life is too short to wear boring clothes.",
-        "Playing dress-up begins at age five and never truly ends.",
-        "Anyone can get dressed up and glamorous, but it is how people dress in their days off that is the most intriguing.",
-        "Fashion is very important. It is life-enhancing and, like everything that gives pleasure, it is worth doing well."
+        "Style is the only thing you can't buy.",
+        "The best color in the whole world is the one that looks good on you."
     ]
 
     static var todaysQuote: String {

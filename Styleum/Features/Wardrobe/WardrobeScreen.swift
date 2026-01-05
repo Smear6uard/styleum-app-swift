@@ -120,7 +120,7 @@ struct WardrobeItemCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Image with proper containment - NO overflow
-            AsyncImage(url: URL(string: item.photoUrl ?? "")) { phase in
+            AsyncImage(url: URL(string: item.displayPhotoUrl ?? "")) { phase in
                 switch phase {
                 case .success(let image):
                     image

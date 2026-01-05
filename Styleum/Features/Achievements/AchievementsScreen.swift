@@ -3,70 +3,94 @@ import SwiftUI
 struct AchievementsScreen: View {
     @Environment(AppCoordinator.self) var coordinator
     @State private var achievementsService = AchievementsService.shared
-    @State private var selectedCategory: String = "All"
-
-    let categories = ["All", "Wardrobe", "Outfits", "Streaks", "Social"]
+    @State private var streakService = StreakService.shared
+    @State private var selectedCategory: AchievementCategory? = nil
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                Text("Achievements")
-                    .font(AppTypography.headingLarge)
+            // Editorial header
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Achievements")
+                        .font(AppTypography.headingLarge)
 
-                HStack(spacing: 4) {
-                    Text("\(achievementsService.unlockedCount) of \(achievementsService.totalCount)")
-                        .font(AppTypography.titleMedium)
-                    Text("Achievements Unlocked")
-                        .font(AppTypography.bodyMedium)
+                    Spacer()
+
+                    // Unlocked count badge
+                    Text("\(achievementsService.unlockedCount)/\(achievementsService.totalCount)")
+                        .font(AppTypography.labelMedium)
                         .foregroundColor(AppColors.textSecondary)
                 }
 
-                // Progress bar
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Rectangle()
-                            .fill(AppColors.filterTagBg)
-                            .frame(height: 4)
-                            .cornerRadius(2)
-
-                        Rectangle()
-                            .fill(AppColors.black)
-                            .frame(width: geo.size.width * progress, height: 4)
-                            .cornerRadius(2)
-                    }
-                }
-                .frame(height: 4)
-                .padding(.top, 4)
+                Text("Track your style journey")
+                    .font(AppTypography.bodyMedium)
+                    .foregroundColor(AppColors.textSecondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(AppSpacing.pageMargin)
 
-            // Underline tabs (single select)
-            UnderlineTabsSingle(
-                tabs: categories,
-                selectedTab: $selectedCategory
-            )
+            // Category tabs
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppSpacing.sm) {
+                    CategoryChip(title: "All", isSelected: selectedCategory == nil) {
+                        selectedCategory = nil
+                    }
+
+                    ForEach(AchievementCategory.allCases) { category in
+                        CategoryChip(
+                            title: category.displayName,
+                            isSelected: selectedCategory == category
+                        ) {
+                            selectedCategory = category
+                        }
+                    }
+                }
+                .padding(.horizontal, AppSpacing.pageMargin)
+            }
             .padding(.bottom, AppSpacing.md)
 
             // Content
-            ScrollView {
-                LazyVGrid(
-                    columns: [
-                        GridItem(.flexible(), spacing: AppSpacing.md),
-                        GridItem(.flexible(), spacing: AppSpacing.md)
-                    ],
-                    spacing: AppSpacing.md
-                ) {
-                    ForEach(0..<6) { index in
-                        AchievementCard(
-                            title: "Achievement \(index + 1)",
-                            description: "Complete this task",
-                            isUnlocked: index < 2,
-                            progress: index < 2 ? 1.0 : Double(index) / 10.0
-                        )
+            if achievementsService.isLoading && achievementsService.achievements.isEmpty {
+                Spacer()
+                ProgressView()
+                Spacer()
+            } else {
+                ScrollView {
+                    VStack(spacing: AppSpacing.lg) {
+                        // Featured next achievement
+                        if let nextAchievement = achievementsService.nextAchievement(for: selectedCategory) {
+                            NextAchievementCard(achievement: nextAchievement)
+                                .padding(.horizontal, AppSpacing.pageMargin)
+                        }
+
+                        // Achievements grid
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.flexible(), spacing: AppSpacing.md),
+                                GridItem(.flexible(), spacing: AppSpacing.md)
+                            ],
+                            spacing: AppSpacing.md
+                        ) {
+                            ForEach(filteredAchievements) { achievement in
+                                AchievementCard(achievement: achievement)
+                                    .onTapGesture {
+                                        HapticManager.shared.light()
+                                        // Mark as seen if it's new
+                                        if achievement.isNew {
+                                            Task {
+                                                await achievementsService.markAsSeen(achievementId: achievement.id)
+                                            }
+                                        }
+                                    }
+                            }
+                        }
+                        .padding(.horizontal, AppSpacing.pageMargin)
                     }
+                    .padding(.bottom, AppSpacing.xl)
                 }
-                .padding(AppSpacing.pageMargin)
+                .refreshable {
+                    await achievementsService.fetchAchievements()
+                }
             }
         }
         .background(AppColors.background)
@@ -76,56 +100,183 @@ struct AchievementsScreen: View {
         }
     }
 
-    private var progress: CGFloat {
-        guard achievementsService.totalCount > 0 else { return 0 }
-        return CGFloat(achievementsService.unlockedCount) / CGFloat(achievementsService.totalCount)
+    // MARK: - Computed Properties
+
+    private var filteredAchievements: [Achievement] {
+        if let category = selectedCategory {
+            return achievementsService.achievements(for: category)
+        }
+        return achievementsService.achievements
     }
 }
 
-struct AchievementCard: View {
+// MARK: - Category Chip
+
+private struct CategoryChip: View {
     let title: String
-    let description: String
-    let isUnlocked: Bool
-    let progress: Double
+    let isSelected: Bool
+    let action: () -> Void
 
     var body: some View {
-        VStack(spacing: AppSpacing.sm) {
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(isUnlocked ? AppColors.black : AppColors.filterTagBg)
-                    .frame(width: 48, height: 48)
-
-                Image(systemName: isUnlocked ? "checkmark" : "star")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(isUnlocked ? .white : AppColors.textMuted)
-            }
-
+        Button(action: {
+            HapticManager.shared.light()
+            action()
+        }) {
             Text(title)
                 .font(AppTypography.labelMedium)
-                .foregroundColor(AppColors.textPrimary)
+                .foregroundColor(isSelected ? .white : AppColors.textPrimary)
+                .padding(.horizontal, AppSpacing.md)
+                .padding(.vertical, AppSpacing.sm)
+                .background(isSelected ? AppColors.black : AppColors.filterTagBg)
+                .cornerRadius(AppSpacing.radiusSm)
+        }
+        .buttonStyle(.plain)
+    }
+}
 
-            Text(description)
-                .font(AppTypography.bodySmall)
-                .foregroundColor(AppColors.textSecondary)
-                .multilineTextAlignment(.center)
+// MARK: - Next Achievement Card
+
+struct NextAchievementCard: View {
+    let achievement: Achievement
+
+    var body: some View {
+        VStack(spacing: AppSpacing.md) {
+            HStack {
+                Text("NEXT MILESTONE")
+                    .font(AppTypography.kicker)
+                    .foregroundColor(AppColors.textMuted)
+                Spacer()
+
+                // Rarity badge
+                Text(achievement.rarity.displayName.uppercased())
+                    .font(AppTypography.kicker)
+                    .foregroundColor(achievement.rarityColor)
+            }
+
+            HStack(spacing: AppSpacing.md) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(AppColors.filterTagBg)
+                        .frame(width: 56, height: 56)
+
+                    Image(systemName: achievement.iconName)
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(AppColors.textPrimary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(achievement.title)
+                        .font(AppTypography.titleLarge)
+                        .foregroundColor(AppColors.textPrimary)
+
+                    Text(achievement.description)
+                        .font(AppTypography.bodySmall)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+
+                Spacer()
+
+                Text("\(achievement.currentProgress)/\(achievement.targetProgress)")
+                    .font(AppTypography.labelMedium)
+                    .foregroundColor(AppColors.textMuted)
+            }
 
             // Progress bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Rectangle()
                         .fill(AppColors.filterTagBg)
-                        .frame(height: 3)
-                        .cornerRadius(1.5)
+                        .frame(height: 6)
+                        .cornerRadius(3)
 
                     Rectangle()
                         .fill(AppColors.black)
-                        .frame(width: geo.size.width * progress, height: 3)
-                        .cornerRadius(1.5)
+                        .frame(width: geo.size.width * achievement.progressPercent, height: 6)
+                        .cornerRadius(3)
                 }
             }
-            .frame(height: 3)
-            .padding(.top, 4)
+            .frame(height: 6)
+        }
+        .padding(AppSpacing.lg)
+        .background(AppColors.backgroundSecondary)
+        .cornerRadius(AppSpacing.radiusLg)
+    }
+}
+
+// MARK: - Achievement Card
+
+struct AchievementCard: View {
+    let achievement: Achievement
+
+    var body: some View {
+        VStack(spacing: AppSpacing.sm) {
+            ZStack {
+                // Icon background
+                ZStack {
+                    Circle()
+                        .fill(achievement.isUnlocked ? AppColors.black : AppColors.filterTagBg)
+                        .frame(width: 48, height: 48)
+
+                    Image(systemName: achievement.iconName)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(achievement.isUnlocked ? .white : AppColors.textMuted)
+                }
+
+                // New badge
+                if achievement.isNew {
+                    Circle()
+                        .fill(achievement.rarityColor)
+                        .frame(width: 12, height: 12)
+                        .offset(x: 18, y: -18)
+                }
+            }
+
+            Text(achievement.title)
+                .font(AppTypography.labelMedium)
+                .foregroundColor(AppColors.textPrimary)
+                .lineLimit(1)
+
+            Text(achievement.description)
+                .font(AppTypography.bodySmall)
+                .foregroundColor(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+
+            if achievement.isUnlocked {
+                // Unlocked state
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 10))
+                    Text("Unlocked")
+                        .font(AppTypography.kicker)
+                }
+                .foregroundColor(achievement.rarityColor)
+                .padding(.top, 4)
+            } else {
+                // Progress bar
+                VStack(spacing: 4) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .fill(AppColors.filterTagBg)
+                                .frame(height: 3)
+                                .cornerRadius(1.5)
+
+                            Rectangle()
+                                .fill(AppColors.black)
+                                .frame(width: geo.size.width * achievement.progressPercent, height: 3)
+                                .cornerRadius(1.5)
+                        }
+                    }
+                    .frame(height: 3)
+
+                    Text("\(achievement.currentProgress)/\(achievement.targetProgress)")
+                        .font(AppTypography.kicker)
+                        .foregroundColor(AppColors.textMuted)
+                }
+                .padding(.top, 4)
+            }
         }
         .padding(AppSpacing.md)
         .background(AppColors.backgroundSecondary)

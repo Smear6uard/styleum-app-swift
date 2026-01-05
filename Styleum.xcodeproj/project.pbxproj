@@ -6,13 +6,39 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		423F21B22F09C60E003172AD /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21B12F09C60E003172AD /* Auth */; };
+		423F21B42F09C60E003172AD /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21B32F09C60E003172AD /* Functions */; };
+		423F21B62F09C60E003172AD /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21B52F09C60E003172AD /* PostgREST */; };
+		423F21B82F09C60E003172AD /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21B72F09C60E003172AD /* Realtime */; };
+		423F21BA2F09C60E003172AD /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21B92F09C60E003172AD /* Storage */; };
+		423F21BC2F09C60E003172AD /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21BB2F09C60E003172AD /* Supabase */; };
+		423F21BF2F09C62F003172AD /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21BE2F09C62F003172AD /* GoogleSignIn */; };
+		423F21C12F09C62F003172AD /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21C02F09C62F003172AD /* GoogleSignInSwift */; };
+		423F21C42F09C648003172AD /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21C32F09C648003172AD /* Kingfisher */; };
+		423F21C72F09C692003172AD /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21C62F09C692003172AD /* KeychainAccess */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		423F21A22F09C578003172AD /* Styleum.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Styleum.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		423F21D02F09D000003172AD /* Exceptions for "Styleum" folder in "Styleum" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 423F21A12F09C578003172AD /* Styleum */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		423F21A42F09C578003172AD /* Styleum */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				423F21D02F09D000003172AD /* Exceptions for "Styleum" folder in "Styleum" target */,
+			);
 			path = Styleum;
 			sourceTree = "<group>";
 		};
@@ -23,6 +49,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				423F21B62F09C60E003172AD /* PostgREST in Frameworks */,
+				423F21B42F09C60E003172AD /* Functions in Frameworks */,
+				423F21BC2F09C60E003172AD /* Supabase in Frameworks */,
+				423F21C42F09C648003172AD /* Kingfisher in Frameworks */,
+				423F21C72F09C692003172AD /* KeychainAccess in Frameworks */,
+				423F21C12F09C62F003172AD /* GoogleSignInSwift in Frameworks */,
+				423F21B22F09C60E003172AD /* Auth in Frameworks */,
+				423F21BA2F09C60E003172AD /* Storage in Frameworks */,
+				423F21B82F09C60E003172AD /* Realtime in Frameworks */,
+				423F21BF2F09C62F003172AD /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +101,16 @@
 			);
 			name = Styleum;
 			packageProductDependencies = (
+				423F21B12F09C60E003172AD /* Auth */,
+				423F21B32F09C60E003172AD /* Functions */,
+				423F21B52F09C60E003172AD /* PostgREST */,
+				423F21B72F09C60E003172AD /* Realtime */,
+				423F21B92F09C60E003172AD /* Storage */,
+				423F21BB2F09C60E003172AD /* Supabase */,
+				423F21BE2F09C62F003172AD /* GoogleSignIn */,
+				423F21C02F09C62F003172AD /* GoogleSignInSwift */,
+				423F21C32F09C648003172AD /* Kingfisher */,
+				423F21C62F09C692003172AD /* KeychainAccess */,
 			);
 			productName = Styleum;
 			productReference = 423F21A22F09C578003172AD /* Styleum.app */;
@@ -94,6 +140,12 @@
 			);
 			mainGroup = 423F21992F09C578003172AD;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				423F21BD2F09C62F003172AD /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				423F21C22F09C648003172AD /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				423F21C52F09C692003172AD /* XCRemoteSwiftPackageReference "KeychainAccess" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 423F21A32F09C578003172AD /* Products */;
 			projectDirPath = "";
@@ -254,6 +306,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Styleum/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -298,6 +351,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Styleum/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -351,6 +405,94 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase-community/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+		423F21BD2F09C62F003172AD /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+		423F21C22F09C648003172AD /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.6.2;
+			};
+		};
+		423F21C52F09C692003172AD /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		423F21B12F09C60E003172AD /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		423F21B32F09C60E003172AD /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		423F21B52F09C60E003172AD /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		423F21B72F09C60E003172AD /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		423F21B92F09C60E003172AD /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		423F21BB2F09C60E003172AD /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		423F21BE2F09C62F003172AD /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21BD2F09C62F003172AD /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		423F21C02F09C62F003172AD /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21BD2F09C62F003172AD /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		423F21C32F09C648003172AD /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21C22F09C648003172AD /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+		423F21C62F09C692003172AD /* KeychainAccess */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 423F21C52F09C692003172AD /* XCRemoteSwiftPackageReference "KeychainAccess" */;
+			productName = KeychainAccess;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 423F219A2F09C578003172AD /* Project object */;
 }

@@ -5,6 +5,7 @@ struct ItemDetailScreen: View {
     @Environment(\.dismiss) var dismiss
     @State private var wardrobeService = WardrobeService.shared
     @State private var showDeleteConfirm = false
+    @State private var isApplyingStudioMode = false
 
     private var item: WardrobeItem? {
         wardrobeService.items.first { $0.id == itemId }
@@ -15,7 +16,7 @@ struct ItemDetailScreen: View {
             VStack(spacing: 0) {
                 // Full-bleed image with overlay buttons
                 ZStack(alignment: .top) {
-                    if let photoUrl = item?.photoUrl {
+                    if let photoUrl = item?.displayPhotoUrl {
                         AsyncImage(url: URL(string: photoUrl)) { image in
                             image
                                 .resizable()
@@ -46,6 +47,7 @@ struct ItemDetailScreen: View {
 
                         Spacer()
 
+                        // Favorite button
                         Button {
                             Task {
                                 try? await wardrobeService.toggleFavorite(id: itemId)
@@ -58,6 +60,41 @@ struct ItemDetailScreen: View {
                                 .frame(width: 40, height: 40)
                                 .background(Color.black.opacity(0.3))
                                 .clipShape(Circle())
+                        }
+
+                        // Studio Mode button
+                        if item?.hasStudioMode == true {
+                            // Already has studio mode - show checkmark
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(.green)
+                                .frame(width: 40, height: 40)
+                                .background(Color.black.opacity(0.3))
+                                .clipShape(Circle())
+                        } else {
+                            // Show Studio Mode button
+                            Button {
+                                Task {
+                                    isApplyingStudioMode = true
+                                    defer { isApplyingStudioMode = false }
+                                    try? await wardrobeService.applyStudioMode(itemId: itemId)
+                                }
+                            } label: {
+                                Group {
+                                    if isApplyingStudioMode {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    } else {
+                                        Image(systemName: "wand.and.stars")
+                                    }
+                                }
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 40, height: 40)
+                                .background(Color.black.opacity(0.3))
+                                .clipShape(Circle())
+                            }
+                            .disabled(isApplyingStudioMode)
                         }
                     }
                     .padding(.horizontal, AppSpacing.pageMargin)

@@ -7,6 +7,8 @@ struct ProfileScreen: View {
     @State private var wardrobeService = WardrobeService.shared
     @State private var achievementsService = AchievementsService.shared
     @State private var authService = AuthService.shared
+    @State private var showEditUsername = false
+    @State private var editingUsername = ""
 
     var body: some View {
         ScrollView {
@@ -23,17 +25,36 @@ struct ProfileScreen: View {
                     }
                 }
 
-                // Avatar - clean, no gradient background
-                AvatarView(
-                    imageURL: profileService.currentProfile?.profilePhotoUrl,
-                    initials: initials,
-                    size: .xlarge
-                )
+                // Avatar - tappable to edit
+                Button {
+                    editingUsername = profileService.currentProfile?.username ?? ""
+                    showEditUsername = true
+                } label: {
+                    AvatarView(
+                        imageURL: profileService.currentProfile?.profilePhotoUrl,
+                        initials: initials,
+                        size: .xlarge
+                    )
+                }
+                .buttonStyle(.plain)
 
-                // Name and location - clean, no gradient
+                // Name and location - with edit capability
                 VStack(spacing: 4) {
-                    Text(displayName)
-                        .font(AppTypography.headingLarge)
+                    Button {
+                        editingUsername = profileService.currentProfile?.username ?? ""
+                        showEditUsername = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(displayName)
+                                .font(AppTypography.headingLarge)
+                                .foregroundColor(AppColors.textPrimary)
+
+                            Image(systemName: "pencil")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(AppColors.textMuted)
+                        }
+                    }
+                    .buttonStyle(.plain)
 
                     HStack(spacing: 4) {
                         Image(systemName: "location")
@@ -156,10 +177,27 @@ struct ProfileScreen: View {
         }
         .background(AppColors.background)
         .navigationBarHidden(true)
+        .alert("Edit Username", isPresented: $showEditUsername) {
+            TextField("Username", text: $editingUsername)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                Task {
+                    await saveUsername()
+                }
+            }
+        } message: {
+            Text("Enter your display name")
+        }
         .task {
             await profileService.fetchProfile()
             await achievementsService.fetchAchievements()
         }
+    }
+
+    private func saveUsername() async {
+        guard !editingUsername.isEmpty else { return }
+        let update = ProfileUpdate(username: editingUsername)
+        try? await profileService.updateProfile(update)
     }
 
     private var initials: String {
@@ -175,11 +213,7 @@ struct ProfileScreen: View {
         if let username = profileService.currentProfile?.username, !username.isEmpty {
             return username
         }
-        // Fallback to email first part or "User"
-        if let email = authService.currentUser?.email {
-            return email.split(separator: "@").first.map(String.init) ?? "User"
-        }
-        return "User"
+        return "Set Username"
     }
 }
 
