@@ -4,7 +4,10 @@ struct HomeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
     @State private var wardrobeService = WardrobeService.shared
     @State private var profileService = ProfileService.shared
+    @State private var streakService = StreakService.shared
     @State private var outfitRepo = OutfitRepository.shared
+    @State private var insights: WardrobeInsights?
+    @State private var isLoadingInsights = true
 
     var body: some View {
         ScrollView {
@@ -47,7 +50,7 @@ struct HomeScreen: View {
 
                         Spacer()
 
-                        Text("\(profileService.currentProfile?.currentStreak ?? 0) days")
+                        Text("\(streakService.currentStreak) days")
                             .font(AppTypography.labelMedium)
                             .foregroundColor(AppColors.textPrimary)
                     }
@@ -139,27 +142,14 @@ struct HomeScreen: View {
                     }
                 }
 
-                // Wardrobe Insights (replaces redundant streak stats)
-                VStack(alignment: .leading, spacing: AppSpacing.md) {
-                    Text("WARDROBE INSIGHTS")
-                        .font(AppTypography.kicker)
-                        .foregroundColor(AppColors.textMuted)
-                        .tracking(1)
-
-                    HStack(spacing: AppSpacing.md) {
-                        InsightCard(
-                            value: "\(wardrobeService.items.count)",
-                            label: "Items",
-                            detail: categoryBreakdown
-                        )
-
-                        InsightCard(
-                            value: mostWornCount,
-                            label: "Most Worn",
-                            detail: mostWornItem
-                        )
-                    }
-                }
+                // Wardrobe Insights
+                WardrobeInsightsSection(
+                    insights: insights,
+                    isLoading: isLoadingInsights,
+                    hasItems: !wardrobeService.items.isEmpty,
+                    onAddItems: { coordinator.present(.addItem) },
+                    onItemTapped: { _ in coordinator.switchTab(to: .wardrobe) }
+                )
             }
             .padding(AppSpacing.pageMargin)
         }
@@ -170,6 +160,9 @@ struct HomeScreen: View {
             await outfitRepo.getTodaysOutfits(forceRefresh: true)
         }
         .task {
+            isLoadingInsights = true
+            insights = try? await StyleumAPI.shared.fetchWardrobeInsights()
+            isLoadingInsights = false
             await wardrobeService.fetchItems()
             await profileService.fetchProfile()
             await outfitRepo.getTodaysOutfits()
@@ -186,56 +179,155 @@ struct HomeScreen: View {
     }
 
     private var streakProgress: CGFloat {
-        let streak = profileService.currentProfile?.currentStreak ?? 0
+        let streak = streakService.currentStreak
         return min(CGFloat(streak) / 7.0, 1.0)
     }
 
-    private var categoryBreakdown: String {
-        let categories = Set(wardrobeService.items.compactMap { $0.category?.displayName })
-        return "\(categories.count) categories"
-    }
+}
 
-    private var mostWornItem: String {
-        guard let item = wardrobeService.items.max(by: { $0.timesWorn < $1.timesWorn }),
-              item.timesWorn > 0 else {
-            return "No data yet"
-        }
-        return item.itemName ?? item.category?.displayName ?? "Item"
-    }
+// MARK: - Wardrobe Insights Section
+struct WardrobeInsightsSection: View {
+    let insights: WardrobeInsights?
+    let isLoading: Bool
+    let hasItems: Bool
+    let onAddItems: () -> Void
+    let onItemTapped: (String) -> Void
 
-    private var mostWornCount: String {
-        guard let item = wardrobeService.items.max(by: { $0.timesWorn < $1.timesWorn }),
-              item.timesWorn > 0 else {
-            return "—"
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            Text("WARDROBE INSIGHTS")
+                .font(AppTypography.kicker)
+                .foregroundColor(AppColors.textMuted)
+                .tracking(1)
+
+            if isLoading {
+                if hasItems {
+                    HStack(spacing: AppSpacing.md) {
+                        InsightCardSkeleton()
+                        InsightCardSkeleton()
+                    }
+                } else {
+                    EmptyWardrobeSkeleton()
+                }
+            } else if let insights = insights {
+                if insights.itemCount == 0 {
+                    EmptyWardrobeCard(onAddItems: onAddItems)
+                } else {
+                    HStack(spacing: AppSpacing.md) {
+                        ItemCountCard(count: insights.itemCount, categoryCount: insights.categoryCount)
+                        MostWornCard(item: insights.mostWornItem, onTap: {
+                            if let item = insights.mostWornItem {
+                                onItemTapped(item.id)
+                            }
+                        })
+                    }
+                }
+            } else {
+                EmptyWardrobeCard(onAddItems: onAddItems)
+            }
         }
-        return "\(item.timesWorn)x"
     }
 }
 
-// MARK: - Insight Card
-struct InsightCard: View {
-    let value: String
-    let label: String
-    let detail: String
+struct EmptyWardrobeCard: View {
+    let onAddItems: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(value)
+        VStack(spacing: AppSpacing.md) {
+            Image(systemName: "tshirt")
+                .font(.system(size: 32))
+                .foregroundColor(AppColors.textMuted)
+            Text("Add your first items")
+                .font(AppTypography.titleSmall)
+            Text("to get started")
+                .font(AppTypography.bodySmall)
+                .foregroundColor(AppColors.textSecondary)
+            Button(action: onAddItems) {
+                Text("Add Items")
+                    .font(AppTypography.labelMedium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(AppColors.black)
+                    .cornerRadius(AppSpacing.radiusSm)
+            }
+            .buttonStyle(ScaleButtonStyle())
+        }
+        .frame(maxWidth: .infinity)
+        .padding(AppSpacing.xl)
+        .background(AppColors.backgroundSecondary)
+        .cornerRadius(AppSpacing.radiusMd)
+    }
+}
+
+struct ItemCountCard: View {
+    let count: Int
+    let categoryCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(count)")
                 .font(AppTypography.displaySmall)
-
-            Text(label)
+            Text("Items")
                 .font(AppTypography.labelMedium)
-                .foregroundColor(AppColors.textPrimary)
-
-            Text(detail)
+            Text("\(categoryCount) categories")
                 .font(AppTypography.bodySmall)
                 .foregroundColor(AppColors.textMuted)
-                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(AppSpacing.md)
         .background(AppColors.backgroundSecondary)
         .cornerRadius(AppSpacing.radiusMd)
+    }
+}
+
+struct MostWornCard: View {
+    let item: MostWornItem?
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 4) {
+                if let item = item {
+                    HStack(spacing: AppSpacing.sm) {
+                        AsyncImage(url: URL(string: item.imageUrl ?? "")) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle().fill(AppColors.filterTagBg)
+                        }
+                        .frame(width: 40, height: 40)
+                        .cornerRadius(AppSpacing.radiusSm)
+
+                        Text(item.name)
+                            .font(AppTypography.bodySmall)
+                            .lineLimit(1)
+                            .foregroundColor(AppColors.textPrimary)
+                    }
+                    Spacer()
+                    Text("Most Worn")
+                        .font(AppTypography.labelMedium)
+                        .foregroundColor(AppColors.textPrimary)
+                    Text("Worn \(item.wearCount)x")
+                        .font(AppTypography.bodySmall)
+                        .foregroundColor(AppColors.textMuted)
+                } else {
+                    Text("—")
+                        .font(AppTypography.displaySmall)
+                        .foregroundColor(AppColors.textMuted)
+                    Text("Most Worn")
+                        .font(AppTypography.labelMedium)
+                    Text("Wear an outfit to track")
+                        .font(AppTypography.bodySmall)
+                        .foregroundColor(AppColors.textMuted)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(AppSpacing.md)
+            .background(AppColors.backgroundSecondary)
+            .cornerRadius(AppSpacing.radiusMd)
+        }
+        .buttonStyle(.plain)
+        .disabled(item == nil)
     }
 }
 
@@ -273,7 +365,7 @@ struct TodaysOutfitCard: View {
             HStack(spacing: AppSpacing.sm) {
                 ForEach(outfit.wardrobeItemIds.prefix(3), id: \.self) { itemId in
                     if let item = wardrobeService.items.first(where: { $0.id == itemId }) {
-                        AsyncImage(url: URL(string: item.photoUrl ?? "")) { image in
+                        AsyncImage(url: URL(string: item.displayPhotoUrl ?? "")) { image in
                             image
                                 .resizable()
                                 .scaledToFill()

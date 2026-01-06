@@ -68,7 +68,7 @@ final class WardrobeService {
     // MARK: - Add Item
 
     #if os(iOS)
-    func addItem(image: UIImage, category: ClothingCategory) async throws -> WardrobeItem {
+    func addItem(image: UIImage, category: ClothingCategory, name: String? = nil) async throws -> WardrobeItem {
         guard let userId = SupabaseManager.shared.currentUserId else {
             throw WardrobeError.notAuthenticated
         }
@@ -110,7 +110,8 @@ final class WardrobeService {
         // 4. Call API to create item (replaces DB insert + AI analysis trigger)
         let createdItem = try await api.uploadItem(
             imageUrl: publicURL.absoluteString,
-            category: category.rawValue
+            category: category.rawValue,
+            name: name
         )
 
         print("Item created with ID: \(createdItem.id)")
@@ -257,8 +258,8 @@ final class WardrobeService {
     }
 
     var hasEnoughForOutfits: Bool {
-        let tops = items(for: .top).count
-        let bottoms = items(for: .bottom).count
+        let tops = items(for: .tops).count
+        let bottoms = items(for: .bottoms).count
         let shoes = items(for: .shoes).count
         return tops >= 1 && bottoms >= 1 && shoes >= 1
     }
@@ -272,6 +273,11 @@ struct WardrobeItemUpdate: Encodable {
     var tags: [String]?
     var primaryColor: String?
     var isFavorite: Bool?
+    var category: String?
+    var styleVibes: [String]?
+    var material: String?
+    var formality: Int?
+    var occasions: [String]?
 
     enum CodingKeys: String, CodingKey {
         case timesWorn = "times_worn"
@@ -279,6 +285,11 @@ struct WardrobeItemUpdate: Encodable {
         case tags
         case primaryColor = "primary_color"
         case isFavorite = "is_favorite"
+        case category
+        case styleVibes = "style_vibes"
+        case material
+        case formality
+        case occasions
     }
 }
 

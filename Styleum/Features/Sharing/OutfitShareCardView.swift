@@ -199,7 +199,7 @@ struct ShareItemImage: View {
     let item: WardrobeItem
 
     private var imageUrl: String? {
-        item.photoUrlClean ?? item.photoUrl
+        item.displayPhotoUrl
     }
 
     var body: some View {

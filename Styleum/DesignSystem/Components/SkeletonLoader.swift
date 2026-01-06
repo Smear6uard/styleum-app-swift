@@ -48,6 +48,7 @@ struct SkeletonCard: View {
                 SkeletonLoader(width: 80, height: 14)
             }
         }
+        .clipped()
     }
 }
 
@@ -65,6 +66,37 @@ struct SkeletonListItem: View {
             Spacer()
         }
         .padding(.vertical, AppSpacing.xs)
+    }
+}
+
+// MARK: - Insight Card Skeleton (for Wardrobe Insights)
+struct InsightCardSkeleton: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SkeletonLoader(width: 48, height: 32)   // Large number
+            SkeletonLoader(width: 60, height: 16)   // "Items" label
+            SkeletonLoader(width: 80, height: 12)   // "X categories" text
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(AppSpacing.md)
+        .background(AppColors.backgroundSecondary)
+        .cornerRadius(AppSpacing.radiusMd)
+    }
+}
+
+// MARK: - Empty Wardrobe Skeleton (full-width)
+struct EmptyWardrobeSkeleton: View {
+    var body: some View {
+        VStack(spacing: AppSpacing.md) {
+            SkeletonLoader(width: 32, height: 32, cornerRadius: 8)  // Icon
+            SkeletonLoader(width: 140, height: 18)                   // "Add your first items"
+            SkeletonLoader(width: 80, height: 14)                    // "to get started"
+            SkeletonLoader(width: 100, height: 36, cornerRadius: AppSpacing.radiusSm)  // Button
+        }
+        .frame(maxWidth: .infinity)
+        .padding(AppSpacing.xl)
+        .background(AppColors.backgroundSecondary)
+        .cornerRadius(AppSpacing.radiusMd)
     }
 }
 

@@ -2,71 +2,47 @@ import Foundation
 
 struct Profile: Codable, Identifiable, Equatable {
     let id: String
-    let userId: String
-    var username: String?
-    var profilePhotoUrl: String?
-    var bodyType: String?
-    var heightCm: Int?
-    var budgetRange: String?
-    var skinTone: String?
-    var aestheticPreference: String?
-    var fitPreference: String?
-    var styleArchetypes: [String]?
-    var brandPreferences: [String]?
-    var currentStreak: Int
-    var longestStreak: Int
-    var lastActiveDate: String?
-    var totalDaysActive: Int
+    let firstName: String?
+    let email: String?
+    var departments: [String]?
+    var referralSource: String?
+    var onboardingCompleted: Bool?
     var onboardingVersion: Int?
+    var styleQuizCompleted: Bool?
     let createdAt: Date?
     var updatedAt: Date?
+    var isPro: Bool?
 
     var displayName: String {
-        username ?? "there"
+        firstName ?? "there"
     }
 
     enum CodingKeys: String, CodingKey {
         case id
-        case userId = "user_id"
-        case username
-        case profilePhotoUrl = "profile_photo_url"
-        case bodyType = "body_type"
-        case heightCm = "height_cm"
-        case budgetRange = "budget_range"
-        case skinTone = "skin_tone"
-        case aestheticPreference = "aesthetic_preference"
-        case fitPreference = "fit_preference"
-        case styleArchetypes = "style_archetypes"
-        case brandPreferences = "brand_preferences"
-        case currentStreak = "current_streak"
-        case longestStreak = "longest_streak"
-        case lastActiveDate = "last_active_date"
-        case totalDaysActive = "total_days_active"
+        case firstName = "first_name"
+        case email
+        case departments
+        case referralSource = "referral_source"
+        case onboardingCompleted = "onboarding_completed"
         case onboardingVersion = "onboarding_version"
+        case styleQuizCompleted = "style_quiz_completed"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case isPro = "is_pro"
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
-        userId = try container.decode(String.self, forKey: .userId)
-        username = try container.decodeIfPresent(String.self, forKey: .username)
-        profilePhotoUrl = try container.decodeIfPresent(String.self, forKey: .profilePhotoUrl)
-        bodyType = try container.decodeIfPresent(String.self, forKey: .bodyType)
-        heightCm = try container.decodeIfPresent(Int.self, forKey: .heightCm)
-        budgetRange = try container.decodeIfPresent(String.self, forKey: .budgetRange)
-        skinTone = try container.decodeIfPresent(String.self, forKey: .skinTone)
-        aestheticPreference = try container.decodeIfPresent(String.self, forKey: .aestheticPreference)
-        fitPreference = try container.decodeIfPresent(String.self, forKey: .fitPreference)
-        styleArchetypes = try container.decodeIfPresent([String].self, forKey: .styleArchetypes)
-        brandPreferences = try container.decodeIfPresent([String].self, forKey: .brandPreferences)
-        currentStreak = try container.decodeIfPresent(Int.self, forKey: .currentStreak) ?? 0
-        longestStreak = try container.decodeIfPresent(Int.self, forKey: .longestStreak) ?? 0
-        lastActiveDate = try container.decodeIfPresent(String.self, forKey: .lastActiveDate)
-        totalDaysActive = try container.decodeIfPresent(Int.self, forKey: .totalDaysActive) ?? 0
+        firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
+        email = try container.decodeIfPresent(String.self, forKey: .email)
+        departments = try container.decodeIfPresent([String].self, forKey: .departments)
+        referralSource = try container.decodeIfPresent(String.self, forKey: .referralSource)
+        onboardingCompleted = try container.decodeIfPresent(Bool.self, forKey: .onboardingCompleted)
         onboardingVersion = try container.decodeIfPresent(Int.self, forKey: .onboardingVersion)
+        styleQuizCompleted = try container.decodeIfPresent(Bool.self, forKey: .styleQuizCompleted)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+        isPro = try container.decodeIfPresent(Bool.self, forKey: .isPro)
     }
 }

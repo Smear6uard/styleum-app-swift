@@ -13,6 +13,9 @@ final class AppCoordinator {
     var activeSheet: SheetDestination?
     var activeFullScreen: FullScreenDestination?
 
+    /// Item pre-selected from wardrobe for "Style this piece" flow
+    var preSelectedWardrobeItem: WardrobeItem?
+
     // MARK: - Tabs
     enum Tab: Int, CaseIterable {
         case home = 0
@@ -71,12 +74,14 @@ final class AppCoordinator {
     // MARK: - Full Screen Destinations
     enum FullScreenDestination: Identifiable {
         case onboarding
+        case styleQuiz       // Standalone style quiz for users who skipped during onboarding
         case aiProcessing
         case outfitResults
 
         var id: String {
             switch self {
             case .onboarding: return "onboarding"
+            case .styleQuiz: return "styleQuiz"
             case .aiProcessing: return "aiProcessing"
             case .outfitResults: return "outfitResults"
             }
@@ -155,5 +160,11 @@ final class AppCoordinator {
         } else {
             selectedTab = tab
         }
+    }
+
+    /// Navigate to Style Me with pre-selected item for "Style this piece" flow
+    func styleThisPiece(_ item: WardrobeItem) {
+        preSelectedWardrobeItem = item
+        switchTab(to: .styleMe)
     }
 }

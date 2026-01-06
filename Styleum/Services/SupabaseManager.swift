@@ -7,25 +7,41 @@ final class SupabaseManager {
     let client: SupabaseClient
 
     private init() {
+        print("🔌 [SUPABASE] ========== INIT START ==========")
+        print("🔌 [SUPABASE] Supabase URL: \(Config.supabaseURL)")
+        print("🔌 [SUPABASE] Anon key exists: \(!Config.supabaseAnonKey.isEmpty)")
+        print("🔌 [SUPABASE] Anon key length: \(Config.supabaseAnonKey.count)")
+
         client = SupabaseClient(
             supabaseURL: URL(string: Config.supabaseURL)!,
-            supabaseKey: Config.supabaseAnonKey
+            supabaseKey: Config.supabaseAnonKey,
+            options: SupabaseClientOptions(
+                auth: SupabaseClientOptions.AuthOptions(
+                    emitLocalSessionAsInitialSession: true
+                )
+            )
         )
+        print("🔌 [SUPABASE] ✅ Client created successfully")
+        print("🔌 [SUPABASE] ========== INIT END ==========")
     }
 
     var currentUserId: String? {
-        client.auth.currentUser?.id.uuidString
+        let userId = client.auth.currentUser?.id.uuidString
+        print("🔌 [SUPABASE] currentUserId accessed: \(userId ?? "nil")")
+        return userId
     }
 
     var isAuthenticated: Bool {
-        client.auth.currentUser != nil
+        let isAuth = client.auth.currentUser != nil
+        print("🔌 [SUPABASE] isAuthenticated accessed: \(isAuth)")
+        return isAuth
     }
 }
 
 // MARK: - Database Tables
 enum DBTable: String {
     case wardrobeItems = "wardrobe_items"
-    case profiles = "profiles"
+    case profiles = "user_profiles"
     case achievementDefinitions = "achievement_definitions"
     case userAchievements = "user_achievements"
     case userStats = "user_stats"

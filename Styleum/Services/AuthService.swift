@@ -18,6 +18,8 @@ final class AuthService {
     var error: Error?
 
     private init() {
+        print("🔐 [AUTH] AuthService initialized")
+        print("🔐 [AUTH] Supabase client exists: \(supabase != nil)")
         Task {
             await checkSession()
         }
@@ -25,45 +27,97 @@ final class AuthService {
 
     // MARK: - Check Existing Session
     func checkSession() async {
+        print("🔐 [AUTH] ========== CHECK SESSION START ==========")
+        print("🔐 [AUTH] Timestamp: \(Date())")
+        print("🔐 [AUTH] Current isAuthenticated: \(isAuthenticated)")
+        print("🔐 [AUTH] Current user before check: \(currentUser?.email ?? "nil")")
+
         do {
+            print("🔐 [AUTH] Attempting to get Supabase session...")
             let session = try await supabase.auth.session
+            print("🔐 [AUTH] ✅ Session retrieved successfully")
+            print("🔐 [AUTH] Session user ID: \(session.user.id)")
+            print("🔐 [AUTH] Session user email: \(session.user.email ?? "no email")")
+            print("🔐 [AUTH] Session access token exists: \(!session.accessToken.isEmpty)")
+            print("🔐 [AUTH] Session expires at: \(session.expiresAt ?? 0)")
+
             currentUser = session.user
-            print("✅ Existing session found: \(session.user.email ?? "no email")")
+            print("🔐 [AUTH] ✅ currentUser set to: \(currentUser?.email ?? "nil")")
+            print("🔐 [AUTH] ✅ isAuthenticated is now: \(isAuthenticated)")
         } catch {
             currentUser = nil
-            print("ℹ️ No existing session")
+            print("🔐 [AUTH] ⚠️ No existing session or error occurred")
+            print("🔐 [AUTH] Error type: \(type(of: error))")
+            print("🔐 [AUTH] Error description: \(error.localizedDescription)")
+            print("🔐 [AUTH] Full error: \(error)")
+            print("🔐 [AUTH] isAuthenticated is now: \(isAuthenticated)")
         }
+        print("🔐 [AUTH] ========== CHECK SESSION END ==========")
     }
 
     // MARK: - Google Sign In
     @MainActor
     func signInWithGoogle() async throws {
+        print("🔐 [AUTH] ========== GOOGLE SIGN-IN START ==========")
+        print("🔐 [AUTH] Timestamp: \(Date())")
+
         isLoading = true
         error = nil
+        print("🔐 [AUTH] Set isLoading=true, cleared error")
 
-        defer { isLoading = false }
-
-        print("🔄 Starting Google Sign-In...")
+        defer {
+            isLoading = false
+            print("🔐 [AUTH] Set isLoading=false (defer)")
+        }
 
         #if os(iOS)
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootViewController = windowScene.windows.first?.rootViewController else {
-            print("❌ Google Sign-In: No view controller found")
+        print("🔐 [AUTH] Platform: iOS")
+        print("🔐 [AUTH] Looking for window scene and root view controller...")
+
+        let connectedScenes = UIApplication.shared.connectedScenes
+        print("🔐 [AUTH] Connected scenes count: \(connectedScenes.count)")
+
+        for (index, scene) in connectedScenes.enumerated() {
+            print("🔐 [AUTH] Scene \(index): \(type(of: scene)), state: \(scene.activationState.rawValue)")
+        }
+
+        guard let windowScene = connectedScenes.first as? UIWindowScene else {
+            print("🔐 [AUTH] ❌ No UIWindowScene found in connected scenes")
             throw AuthError.noViewController
         }
 
-        print("✅ Got root view controller")
+        print("🔐 [AUTH] ✅ Got window scene: \(windowScene)")
+        print("🔐 [AUTH] Window scene windows count: \(windowScene.windows.count)")
+
+        guard let window = windowScene.windows.first else {
+            print("🔐 [AUTH] ❌ No windows in window scene")
+            throw AuthError.noViewController
+        }
+
+        print("🔐 [AUTH] ✅ Got first window: \(window)")
+
+        guard let rootViewController = window.rootViewController else {
+            print("🔐 [AUTH] ❌ No root view controller on window")
+            throw AuthError.noViewController
+        }
+
+        print("🔐 [AUTH] ✅ Got root view controller: \(type(of: rootViewController))")
 
         do {
+            print("🔐 [AUTH] Presenting Google Sign-In dialog...")
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
-            print("✅ Google Sign-In dialog completed")
+            print("🔐 [AUTH] ✅ Google Sign-In dialog completed")
+            print("🔐 [AUTH] Google user email: \(result.user.profile?.email ?? "no email")")
+            print("🔐 [AUTH] Google user name: \(result.user.profile?.name ?? "no name")")
 
             guard let idToken = result.user.idToken?.tokenString else {
-                print("❌ Google Sign-In: No ID token received")
+                print("🔐 [AUTH] ❌ No ID token received from Google")
+                print("🔐 [AUTH] Access token exists: \(result.user.accessToken.tokenString.isEmpty == false)")
                 throw AuthError.noIdToken
             }
 
-            print("✅ Got ID token, exchanging with Supabase...")
+            print("🔐 [AUTH] ✅ Got ID token (length: \(idToken.count) chars)")
+            print("🔐 [AUTH] Exchanging ID token with Supabase...")
 
             let response = try await supabase.auth.signInWithIdToken(
                 credentials: .init(
@@ -72,83 +126,63 @@ final class AuthService {
                 )
             )
 
-            currentUser = response.user
-            print("✅ Supabase auth successful: \(response.user.email ?? "no email")")
-            HapticManager.shared.success()
+            print("🔐 [AUTH] ✅ Supabase auth.signInWithIdToken successful")
+            print("🔐 [AUTH] Response user ID: \(response.user.id)")
+            print("🔐 [AUTH] Response user email: \(response.user.email ?? "no email")")
+            print("🔐 [AUTH] Session access token exists: \(!response.accessToken.isEmpty)")
 
-            // Create profile if first time
-            await createProfileIfNeeded()
+            currentUser = response.user
+            print("🔐 [AUTH] ✅ currentUser set to: \(currentUser?.email ?? "nil")")
+            print("🔐 [AUTH] ✅ isAuthenticated is now: \(isAuthenticated)")
+
+            HapticManager.shared.success()
+            print("🔐 [AUTH] ========== GOOGLE SIGN-IN SUCCESS ==========")
 
         } catch let error as NSError {
-            print("❌ Google Sign-In Error: \(error.localizedDescription)")
-            print("❌ Error domain: \(error.domain)")
-            print("❌ Error code: \(error.code)")
-            print("❌ Error userInfo: \(error.userInfo)")
+            print("🔐 [AUTH] ========== GOOGLE SIGN-IN ERROR ==========")
+            print("🔐 [AUTH] ❌ Error occurred during Google Sign-In")
+            print("🔐 [AUTH] Error type: \(type(of: error))")
+            print("🔐 [AUTH] Error domain: \(error.domain)")
+            print("🔐 [AUTH] Error code: \(error.code)")
+            print("🔐 [AUTH] Error localizedDescription: \(error.localizedDescription)")
+            print("🔐 [AUTH] Error userInfo keys: \(error.userInfo.keys)")
+            for (key, value) in error.userInfo {
+                print("🔐 [AUTH] Error userInfo[\(key)]: \(value)")
+            }
+            if let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? Error {
+                print("🔐 [AUTH] Underlying error: \(underlyingError)")
+            }
             self.error = error
             throw error
         }
+        #else
+        print("🔐 [AUTH] ❌ Platform not iOS - Google Sign-In not supported")
         #endif
     }
 
     // MARK: - Sign Out
     func signOut() async throws {
+        print("🔐 [AUTH] ========== SIGN OUT START ==========")
         isLoading = true
         error = nil
 
-        defer { isLoading = false }
+        defer {
+            isLoading = false
+            print("🔐 [AUTH] ========== SIGN OUT END ==========")
+        }
 
+        print("🔐 [AUTH] Signing out from Supabase...")
         try await supabase.auth.signOut()
+        print("🔐 [AUTH] ✅ Supabase sign out complete")
+
+        print("🔐 [AUTH] Signing out from Google...")
         GIDSignIn.sharedInstance.signOut()
+        print("🔐 [AUTH] ✅ Google sign out complete")
 
         currentUser = nil
-        print("✅ Signed out")
+        print("🔐 [AUTH] ✅ currentUser set to nil")
+        print("🔐 [AUTH] ✅ isAuthenticated is now: \(isAuthenticated)")
         HapticManager.shared.light()
-    }
-
-    // MARK: - Create Profile
-    private func createProfileIfNeeded() async {
-        guard let userId = currentUser?.id else { return }
-
-        do {
-            // Check if profile exists
-            let existingProfile: Profile? = try? await supabase
-                .from(DBTable.profiles.rawValue)
-                .select()
-                .eq("user_id", value: userId.uuidString)
-                .single()
-                .execute()
-                .value
-
-            if existingProfile == nil {
-                print("📝 Creating new profile...")
-                // Create new profile
-                let newProfile = NewProfileInsert(
-                    userId: userId.uuidString,
-                    onboardingCompleted: false
-                )
-
-                try await supabase
-                    .from(DBTable.profiles.rawValue)
-                    .insert(newProfile)
-                    .execute()
-                print("✅ Profile created")
-            } else {
-                print("✅ Profile already exists")
-            }
-        } catch {
-            print("❌ Profile creation error: \(error)")
-        }
-    }
-}
-
-// MARK: - New Profile Insert
-struct NewProfileInsert: Encodable {
-    let userId: String
-    let onboardingCompleted: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case onboardingCompleted = "onboarding_completed"
     }
 }
 

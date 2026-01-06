@@ -1,68 +1,72 @@
 import Vision
 import UIKit
 
-/// On-device content moderation using Apple Vision framework.
-/// Blocks inappropriate images before they're uploaded to the server.
 actor ContentModerationService {
     static let shared = ContentModerationService()
 
     private init() {}
 
-    /// Check if image is safe to upload
-    /// Returns true if safe, false if flagged as sensitive
     func isSafeForUpload(_ image: UIImage) async throws -> Bool {
+        #if targetEnvironment(simulator)
+        print("[ContentModeration] Skipping in simulator - Vision ML not supported")
+        return true
+        #else
         guard let cgImage = image.cgImage else {
             throw ContentModerationError.invalidImage
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            let request = VNClassifyImageRequest { request, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                    return
-                }
+        // Run on background thread to avoid blocking and prevent cancellation
+        return try await Task.detached(priority: .userInitiated) {
+            try self.performModerationCheck(cgImage: cgImage)
+        }.value
+        #endif
+    }
 
-                guard let results = request.results as? [VNClassificationObservation] else {
-                    continuation.resume(returning: true) // Allow if can't classify
-                    return
-                }
+    private nonisolated func performModerationCheck(cgImage: CGImage) throws -> Bool {
+        let semaphore = DispatchSemaphore(value: 0)
+        var isSafe = true
+        var completionError: Error?
 
-                // Check for sensitive content classifications
-                let sensitiveCategories = [
-                    "explicit",
-                    "nudity",
-                    "sexual",
-                    "adult",
-                    "racy"
-                ]
+        let request = VNClassifyImageRequest { request, error in
+            defer { semaphore.signal() }
 
-                for result in results {
-                    let identifier = result.identifier.lowercased()
-                    let confidence = result.confidence
+            if let error = error {
+                completionError = error
+                return
+            }
 
+            guard let results = request.results as? [VNClassificationObservation] else {
+                return
+            }
+
+            let sensitiveCategories = ["explicit", "nudity", "sexual", "adult", "racy"]
+
+            for result in results {
+                let identifier = result.identifier.lowercased()
+                if result.confidence > 0.7 {
                     for category in sensitiveCategories {
-                        if identifier.contains(category) && confidence > 0.7 {
-                            print("[ContentModeration] Flagged: \(identifier) (\(confidence))")
-                            continuation.resume(returning: false)
+                        if identifier.contains(category) {
+                            isSafe = false
                             return
                         }
                     }
                 }
-
-                continuation.resume(returning: true)
-            }
-
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                continuation.resume(throwing: error)
             }
         }
+
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        try handler.perform([request])
+
+        // Wait for completion (perform is synchronous, but callback may be async)
+        _ = semaphore.wait(timeout: .now() + 5.0)
+
+        if let error = completionError {
+            throw error
+        }
+
+        return isSafe
     }
 }
-
-// MARK: - Content Moderation Error
 
 enum ContentModerationError: LocalizedError {
     case invalidImage

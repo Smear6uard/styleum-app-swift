@@ -6,6 +6,8 @@
 	<string>Styleum needs camera access to photograph your clothing items</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Styleum needs photo library access to add clothing items from your library</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Styleum uses your location to provide weather-appropriate outfit suggestions.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

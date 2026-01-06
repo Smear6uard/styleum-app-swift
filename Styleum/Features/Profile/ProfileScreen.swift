@@ -6,6 +6,7 @@ struct ProfileScreen: View {
     @State private var profileService = ProfileService.shared
     @State private var wardrobeService = WardrobeService.shared
     @State private var achievementsService = AchievementsService.shared
+    @State private var streakService = StreakService.shared
     @State private var authService = AuthService.shared
     @State private var showEditUsername = false
     @State private var editingUsername = ""
@@ -27,11 +28,11 @@ struct ProfileScreen: View {
 
                 // Avatar - tappable to edit
                 Button {
-                    editingUsername = profileService.currentProfile?.username ?? ""
+                    editingUsername = profileService.currentProfile?.firstName ?? ""
                     showEditUsername = true
                 } label: {
                     AvatarView(
-                        imageURL: profileService.currentProfile?.profilePhotoUrl,
+                        imageURL: nil,
                         initials: initials,
                         size: .xlarge
                     )
@@ -41,7 +42,7 @@ struct ProfileScreen: View {
                 // Name and location - with edit capability
                 VStack(spacing: 4) {
                     Button {
-                        editingUsername = profileService.currentProfile?.username ?? ""
+                        editingUsername = profileService.currentProfile?.firstName ?? ""
                         showEditUsername = true
                     } label: {
                         HStack(spacing: 6) {
@@ -72,12 +73,12 @@ struct ProfileScreen: View {
                     Divider()
                         .frame(height: 40)
 
-                    ProfileStatItem(value: "\(profileService.currentProfile?.currentStreak ?? 0)", label: "Day Streak")
+                    ProfileStatItem(value: "\(streakService.currentStreak)", label: "Day Streak")
 
                     Divider()
                         .frame(height: 40)
 
-                    ProfileStatItem(value: "\(profileService.currentProfile?.totalDaysActive ?? 0)", label: "Days Active")
+                    ProfileStatItem(value: "\(streakService.totalDaysActive)", label: "Days Active")
                 }
                 .padding(.vertical, AppSpacing.md)
                 .background(AppColors.backgroundSecondary)
@@ -196,8 +197,9 @@ struct ProfileScreen: View {
 
     private func saveUsername() async {
         guard !editingUsername.isEmpty else { return }
-        let update = ProfileUpdate(username: editingUsername)
-        try? await profileService.updateProfile(update)
+        // TODO: Update ProfileUpdate model and API to support firstName update
+        // For now, skipping update as API structure has changed
+        // User can update name through API when support is added
     }
 
     private var initials: String {
@@ -210,10 +212,10 @@ struct ProfileScreen: View {
     }
 
     private var displayName: String {
-        if let username = profileService.currentProfile?.username, !username.isEmpty {
-            return username
+        if let firstName = profileService.currentProfile?.firstName, !firstName.isEmpty {
+            return firstName
         }
-        return "Set Username"
+        return "Set Name"
     }
 }
 

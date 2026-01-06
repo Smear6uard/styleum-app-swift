@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 
 @Observable
 final class OutfitRepository {
@@ -6,8 +7,10 @@ final class OutfitRepository {
 
     private let api = StyleumAPI.shared
     private let wardrobeService = WardrobeService.shared
+    private let locationService = LocationService.shared
 
     var todaysOutfits: [ScoredOutfit] = []
+    var currentWeather: WeatherContext?
     var isLoading = false
     var isGenerating = false
     var error: Error?
@@ -52,13 +55,19 @@ final class OutfitRepository {
         defer { isGenerating = false }
 
         do {
+            // Get location for weather (nil if permission denied)
+            let location = await locationService.getCurrentLocation()
+
             let result = try await api.generateOutfits(
                 occasion: preferences?.occasion,
                 mood: preferences?.styleGoal,
-                boldnessLevel: preferences?.boldnessLevel ?? 3
+                boldnessLevel: preferences?.boldnessLevel ?? 3,
+                latitude: location?.latitude,
+                longitude: location?.longitude
             )
 
             todaysOutfits = result.outfits
+            currentWeather = result.weather
             cacheTimestamp = Date()
 
             HapticManager.shared.success()
@@ -160,6 +169,7 @@ final class OutfitRepository {
 
     func clearCache() {
         todaysOutfits = []
+        currentWeather = nil
         cacheTimestamp = nil
     }
 }

@@ -12,6 +12,14 @@ struct OutfitResultsView: View {
     @State private var showingRefinement = false
     @State private var isRegenerating = false
 
+    // New state for enhanced features
+    @State private var showVerifySheet = false
+    @State private var showRegenerateSheet = false
+    @State private var showXPToast = false
+    @State private var xpAmount = 0
+    @State private var isXPBonus = false
+    @State private var tapScale: CGFloat = 1.0
+
     private var currentOutfit: ScoredOutfit? {
         guard currentIndex < outfitRepo.todaysOutfits.count else { return nil }
         return outfitRepo.todaysOutfits[currentIndex]
@@ -89,12 +97,17 @@ struct OutfitResultsView: View {
                         }
                         .padding(.horizontal, AppSpacing.lg)
 
-                        // Outfit Grid: 1 large + 3 small
+                        // Outfit Grid: 1 large + 3 small with tap navigation
                         OutfitGridView(
                             itemIds: outfit.wardrobeItemIds,
                             items: wardrobeService.items
                         )
+                        .scaleEffect(tapScale)
                         .padding(.horizontal, AppSpacing.pageMargin)
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in
+                            handleTapNavigation(at: location)
+                        }
 
                         // Why it works
                         if !outfit.whyItWorks.isEmpty {
@@ -112,27 +125,24 @@ struct OutfitResultsView: View {
                             .padding(.horizontal, AppSpacing.pageMargin)
                         }
 
-                        // Refinement buttons
-                        HStack(spacing: AppSpacing.sm) {
-                            RefinementButton(label: "More casual", icon: "arrow.down", isLoading: isRegenerating) {
-                                regenerateOutfit(with: .moreCasual)
+                        // Regenerate button (opens sheet)
+                        Button {
+                            HapticManager.shared.light()
+                            showRegenerateSheet = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("Try a different look")
+                                    .font(AppTypography.labelMedium)
                             }
-
-                            RefinementButton(label: "More bold", icon: "sparkles", isLoading: isRegenerating) {
-                                regenerateOutfit(with: .moreBold)
-                            }
+                            .foregroundColor(AppColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(AppColors.filterTagBg)
+                            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
                         }
-                        .padding(.horizontal, AppSpacing.pageMargin)
-
-                        HStack(spacing: AppSpacing.sm) {
-                            RefinementButton(label: "More formal", icon: "arrow.up", isLoading: isRegenerating) {
-                                regenerateOutfit(with: .moreFormal)
-                            }
-
-                            RefinementButton(label: "Different colors", icon: "paintpalette", isLoading: isRegenerating) {
-                                regenerateOutfit(with: .differentColors)
-                            }
-                        }
+                        .buttonStyle(ScaleButtonStyle())
                         .padding(.horizontal, AppSpacing.pageMargin)
                     }
                     .padding(.vertical, AppSpacing.md)
@@ -169,13 +179,10 @@ struct OutfitResultsView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
                         }
 
-                        // Wear button
+                        // Wear button - opens verify sheet
                         Button {
-                            HapticManager.shared.success()
-                            Task {
-                                try? await outfitRepo.markAsWorn(outfit)
-                                dismiss()
-                            }
+                            HapticManager.shared.medium()
+                            showVerifySheet = true
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "checkmark")
@@ -219,6 +226,130 @@ struct OutfitResultsView: View {
             }
         }
         .background(AppColors.background)
+        .overlay(alignment: .top) {
+            if showXPToast {
+                XPToast(amount: xpAmount, isBonus: isXPBonus, isShowing: $showXPToast)
+                    .padding(.top, 60)
+            }
+        }
+        .sheet(isPresented: $showVerifySheet) {
+            if let outfit = currentOutfit {
+                VerifyOutfitSheet(
+                    outfit: outfit,
+                    onVerify: { image in
+                        handleVerifiedWear(image: image)
+                    },
+                    onSkip: {
+                        handleUnverifiedWear()
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showRegenerateSheet) {
+            if let outfit = currentOutfit {
+                RegenerateSheet(
+                    currentOutfit: outfit,
+                    isPro: false, // TODO: Wire up actual Pro status check
+                    onRegenerate: { feedback in
+                        regenerateOutfit(with: feedback)
+                    },
+                    onUpgrade: {
+                        coordinator.navigate(to: .subscription)
+                    }
+                )
+            }
+        }
+    }
+
+    // MARK: - Tap Navigation
+
+    private func handleTapNavigation(at location: CGPoint) {
+        let screenWidth = UIScreen.main.bounds.width
+        let tapX = location.x
+
+        // Left 40% = previous, Right 60% = next
+        let threshold = screenWidth * 0.4
+
+        if tapX < threshold {
+            goToPrevious()
+        } else {
+            goToNext()
+        }
+    }
+
+    private func goToPrevious() {
+        guard currentIndex > 0 else { return }
+        HapticManager.shared.selection()
+        animateTap {
+            currentIndex -= 1
+            isSaved = false
+        }
+    }
+
+    private func goToNext() {
+        guard currentIndex < outfitRepo.todaysOutfits.count - 1 else { return }
+        HapticManager.shared.selection()
+        animateTap {
+            currentIndex += 1
+            isSaved = false
+        }
+    }
+
+    private func animateTap(_ action: @escaping () -> Void) {
+        withAnimation(.easeInOut(duration: 0.1)) {
+            tapScale = 0.97
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                action()
+                tapScale = 1.0
+            }
+        }
+    }
+
+    // MARK: - Wear Actions
+
+    private func handleVerifiedWear(image: UIImage) {
+        guard let outfit = currentOutfit else { return }
+
+        Task {
+            // Upload image and mark as worn
+            // For now, we'll just mark as worn without the photo URL
+            // In production, upload image first then pass URL
+            try? await outfitRepo.markAsWorn(outfit, photoUrl: nil)
+
+            await MainActor.run {
+                // Show 2x XP toast
+                xpAmount = 50
+                isXPBonus = true
+                showXPToast = true
+
+                // Dismiss after toast
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    private func handleUnverifiedWear() {
+        guard let outfit = currentOutfit else { return }
+
+        Task {
+            try? await outfitRepo.markAsWorn(outfit)
+
+            await MainActor.run {
+                // Show 1x XP toast
+                xpAmount = 25
+                isXPBonus = false
+                showXPToast = true
+
+                // Dismiss after toast
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    dismiss()
+                }
+            }
+        }
     }
 
     private func skipToNext() {
@@ -337,7 +468,7 @@ struct OutfitItemImage: View {
     let item: WardrobeItem
 
     var body: some View {
-        AsyncImage(url: URL(string: item.photoUrl ?? "")) { phase in
+        AsyncImage(url: URL(string: item.displayPhotoUrl ?? "")) { phase in
             switch phase {
             case .success(let image):
                 image

@@ -1,6 +1,21 @@
 import SwiftUI
 
 enum AppTypography {
+    // MARK: - Clash Display (Editorial Headers)
+    // TODO: Replace with actual Clash Display font when available
+
+    /// Clash Display Semibold - for editorial headers (placeholder: system bold)
+    static func clashDisplay(_ size: CGFloat) -> Font {
+        .system(size: size, weight: .bold, design: .default)
+    }
+
+    /// Clash Display Semibold Italic - for emphasized words in headers (placeholder: system bold italic)
+    static func clashDisplayItalic(_ size: CGFloat) -> Font {
+        .system(size: size, weight: .bold, design: .default).italic()
+    }
+
+    // MARK: - System Fonts
+
     static let displayLarge = Font.system(size: 32, weight: .bold)
     static let displayMedium = Font.system(size: 28, weight: .bold)
     static let displaySmall = Font.system(size: 24, weight: .bold)

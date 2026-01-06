@@ -56,7 +56,9 @@ struct MainTabView: View {
     private func fullScreenContent(for destination: AppCoordinator.FullScreenDestination) -> some View {
         switch destination {
         case .onboarding:
-            OnboardingView()
+            OnboardingContainerView()
+        case .styleQuiz:
+            StandaloneStyleQuizView()
         case .aiProcessing:
             AIProcessingView()
         case .outfitResults:

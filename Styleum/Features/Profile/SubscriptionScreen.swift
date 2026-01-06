@@ -16,7 +16,7 @@ struct SubscriptionScreen: View {
                     Text("Free")
                         .font(AppTypography.displayMedium)
 
-                    Text("Basic features included")
+                    Text("5 outfit generations per month")
                         .font(AppTypography.bodyMedium)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -35,10 +35,10 @@ struct SubscriptionScreen: View {
                         }
 
                         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                            FeatureRow(text: "Unlimited outfit suggestions")
+                            FeatureRow(text: "75 monthly generations")
+                            FeatureRow(text: "Outfit regeneration with feedback")
                             FeatureRow(text: "Advanced style analytics")
                             FeatureRow(text: "Priority support")
-                            FeatureRow(text: "No ads")
                         }
 
                         AppButton(label: "Upgrade to Pro") {

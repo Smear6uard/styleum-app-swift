@@ -5,84 +5,105 @@ struct LoginScreen: View {
     @State private var showError = false
 
     var body: some View {
-        VStack(spacing: AppSpacing.xl) {
+        VStack(spacing: 0) {
             Spacer()
 
-            // Logo/Brand
-            VStack(spacing: AppSpacing.md) {
-                Image(symbol: .styleMe)
-                    .font(.system(size: 64, weight: .medium))
-                    .foregroundColor(AppColors.black)
+            // Brand
+            VStack(spacing: AppSpacing.lg) {
+                // Minimal hanger icon
+                Image(systemName: "hanger")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundColor(AppColors.textMuted.opacity(0.5))
 
+                // Wordmark
                 Text("Styleum")
-                    .font(AppTypography.displayLarge)
+                    .font(AppTypography.clashDisplay(48))
+                    .foregroundColor(AppColors.textPrimary)
 
-                Text("Your AI-powered wardrobe assistant")
-                    .font(AppTypography.bodyMedium)
+                // Tagline - editorial, not tech
+                Text("Dress like you're already there")
+                    .font(.system(size: 15, weight: .regular, design: .serif))
+                    .italic()
                     .foregroundColor(AppColors.textSecondary)
             }
 
             Spacer()
+            Spacer()
 
             // Sign in buttons
-            VStack(spacing: AppSpacing.md) {
+            VStack(spacing: AppSpacing.sm) {
                 // Google Sign In
-                Button(action: {
+                Button {
+                    print("🔑 [LOGIN] ========== GOOGLE SIGN-IN BUTTON TAPPED ==========")
+                    print("🔑 [LOGIN] Timestamp: \(Date())")
+                    print("🔑 [LOGIN] authService.isLoading: \(authService.isLoading)")
+                    print("🔑 [LOGIN] authService.isAuthenticated: \(authService.isAuthenticated)")
+
                     Task {
                         do {
+                            print("🔑 [LOGIN] Calling authService.signInWithGoogle()...")
                             try await authService.signInWithGoogle()
+                            print("🔑 [LOGIN] ✅ signInWithGoogle completed successfully")
+                            print("🔑 [LOGIN] isAuthenticated: \(authService.isAuthenticated)")
                         } catch {
+                            print("🔑 [LOGIN] ❌ signInWithGoogle threw error!")
+                            print("🔑 [LOGIN] Error type: \(type(of: error))")
+                            print("🔑 [LOGIN] Error description: \(error.localizedDescription)")
+                            print("🔑 [LOGIN] Full error: \(error)")
+                            print("🔑 [LOGIN] Setting showError=true")
                             showError = true
                         }
                     }
-                }) {
+                } label: {
                     HStack(spacing: AppSpacing.sm) {
                         Image(systemName: "g.circle.fill")
-                            .font(.system(size: 20))
+                            .font(.system(size: 18))
                         Text("Continue with Google")
-                            .font(AppTypography.labelLarge)
+                            .font(AppTypography.labelMedium)
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                    .frame(height: 52)
                     .background(AppColors.black)
-                    .cornerRadius(AppSpacing.radiusMd)
+                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
                 }
                 .buttonStyle(ScaleButtonStyle())
                 .disabled(authService.isLoading)
 
-                // Apple Sign In (placeholder)
-                Button(action: {
+                // Apple Sign In
+                Button {
                     // Apple Sign In - implement later
-                }) {
+                } label: {
                     HStack(spacing: AppSpacing.sm) {
                         Image(systemName: "apple.logo")
-                            .font(.system(size: 20))
+                            .font(.system(size: 18))
                         Text("Continue with Apple")
-                            .font(AppTypography.labelLarge)
+                            .font(AppTypography.labelMedium)
                     }
                     .foregroundColor(AppColors.textPrimary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                    .frame(height: 52)
                     .background(AppColors.background)
-                    .cornerRadius(AppSpacing.radiusMd)
+                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
                     .overlay(
                         RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-                            .stroke(AppColors.border, lineWidth: 1.5)
+                            .stroke(AppColors.border, lineWidth: 1)
                     )
                 }
                 .buttonStyle(ScaleButtonStyle())
             }
-            .padding(.horizontal, AppSpacing.lg)
+            .padding(.horizontal, AppSpacing.pageMargin)
 
-            // Terms
+            // Terms - subtle
             Text("By continuing, you agree to our Terms of Service and Privacy Policy")
-                .font(AppTypography.bodySmall)
+                .font(.system(size: 12, weight: .regular))
                 .foregroundColor(AppColors.textMuted)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, AppSpacing.xl)
-                .padding(.bottom, AppSpacing.lg)
+                .padding(.top, AppSpacing.lg)
+                .padding(.bottom, AppSpacing.xl)
         }
+        .background(AppColors.background)
         .overlay {
             if authService.isLoading {
                 Color.black.opacity(0.3)
@@ -90,7 +111,7 @@ struct LoginScreen: View {
                     .overlay(
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.5)
+                            .scaleEffect(1.2)
                     )
             }
         }
@@ -98,6 +119,12 @@ struct LoginScreen: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(authService.error?.localizedDescription ?? "Please try again")
+        }
+        .onAppear {
+            print("🔑 [LOGIN] ========== LOGIN SCREEN APPEARED ==========")
+            print("🔑 [LOGIN] authService.isAuthenticated: \(authService.isAuthenticated)")
+            print("🔑 [LOGIN] authService.isLoading: \(authService.isLoading)")
+            print("🔑 [LOGIN] authService.currentUser exists: \(authService.currentUser != nil)")
         }
     }
 }

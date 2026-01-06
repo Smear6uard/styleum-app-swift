@@ -9,6 +9,7 @@ struct WardrobeItem: Codable, Identifiable, Equatable, Hashable {
     var subcategory: String?
     var itemName: String?
     var styleBucket: String?
+    var styleVibes: [String]?
     var primaryColor: String?
     var secondaryColors: [String]?
     var colorHex: String?
@@ -69,12 +70,13 @@ struct WardrobeItem: Codable, Identifiable, Equatable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
-        case photoUrl = "photo_url"
+        case photoUrl = "original_image_url"
         case thumbnailUrl = "thumbnail_url"
         case category
         case subcategory
         case itemName = "item_name"
         case styleBucket = "style_bucket"
+        case styleVibes = "style_vibes"
         case primaryColor = "primary_color"
         case secondaryColors = "secondary_colors"
         case colorHex = "color_hex"
@@ -114,7 +116,7 @@ struct WardrobeItem: Codable, Identifiable, Equatable, Hashable {
         case feedbackLog = "feedback_log"
         case aiMetadata = "ai_metadata"
         case embedding
-        case photoUrlClean = "photo_url_clean"
+        case photoUrlClean = "processed_image_url"
         case studioModeAt = "studio_mode_at"
         case styleDescription = "style_description"
         case createdAt = "created_at"
@@ -131,6 +133,7 @@ struct WardrobeItem: Codable, Identifiable, Equatable, Hashable {
         subcategory = try container.decodeIfPresent(String.self, forKey: .subcategory)
         itemName = try container.decodeIfPresent(String.self, forKey: .itemName)
         styleBucket = try container.decodeIfPresent(String.self, forKey: .styleBucket)
+        styleVibes = try container.decodeIfPresent([String].self, forKey: .styleVibes)
         primaryColor = try container.decodeIfPresent(String.self, forKey: .primaryColor)
         secondaryColors = try container.decodeIfPresent([String].self, forKey: .secondaryColors)
         colorHex = try container.decodeIfPresent(String.self, forKey: .colorHex)
@@ -169,7 +172,8 @@ struct WardrobeItem: Codable, Identifiable, Equatable, Hashable {
         userVerified = try container.decodeIfPresent(Bool.self, forKey: .userVerified)
         feedbackLog = try container.decodeIfPresent([[String: String]].self, forKey: .feedbackLog)
         aiMetadata = try container.decodeIfPresent([String: String].self, forKey: .aiMetadata)
-        embedding = try container.decodeIfPresent([Double].self, forKey: .embedding)
+        // Skip embedding - it's a pgvector string from Supabase, only used server-side
+        embedding = nil
         photoUrlClean = try container.decodeIfPresent(String.self, forKey: .photoUrlClean)
         studioModeAt = try container.decodeIfPresent(Date.self, forKey: .studioModeAt)
         styleDescription = try container.decodeIfPresent(String.self, forKey: .styleDescription)
