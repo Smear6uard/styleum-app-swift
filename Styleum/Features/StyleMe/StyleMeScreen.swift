@@ -11,6 +11,9 @@ struct StyleMeScreen: View {
     @State private var generationProgress: CGFloat = 0
     @State private var progressTimer: Timer?
 
+    // Animation state
+    @State private var hasAppeared = false
+
     var body: some View {
         ZStack {
             // Background: Neutral editorial gradient
@@ -34,16 +37,22 @@ struct StyleMeScreen: View {
                 Spacer()
 
                 // Core content - centered, confident
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
+                    // Time-based greeting
+                    Text(timeBasedGreeting)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(AppColors.textSecondary)
+                        .tracking(0.5)
+
                     // Weather context - subtle, integrated
                     if let weather = outfitRepo.currentWeather ?? outfitRepo.preGeneratedWeather {
                         Text("\(Int(weather.tempFahrenheit))° and \(weather.condition.lowercased())")
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(AppColors.textSecondary)
+                            .font(.system(size: 14))
+                            .foregroundColor(AppColors.textMuted)
                     }
 
                     // Main headline - clear, confident
-                    VStack(spacing: 8) {
+                    VStack(spacing: 6) {
                         Text("What should I")
                             .font(.system(size: 32, weight: .light, design: .serif))
                         Text("wear today?")
@@ -51,7 +60,11 @@ struct StyleMeScreen: View {
                     }
                     .foregroundColor(AppColors.textPrimary)
                     .multilineTextAlignment(.center)
+                    .padding(.top, 8)
                 }
+                .opacity(hasAppeared ? 1 : 0)
+                .offset(y: hasAppeared ? 0 : 10)
+                .animation(.easeOut(duration: 0.5), value: hasAppeared)
 
                 Spacer()
 
@@ -97,6 +110,27 @@ struct StyleMeScreen: View {
         .task {
             await wardrobeService.fetchItems()
             await fetchLimits()
+        }
+        .onAppear {
+            withAnimation {
+                hasAppeared = true
+            }
+        }
+    }
+
+    // MARK: - Time-Based Greeting
+
+    private var timeBasedGreeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:
+            return "Good morning"
+        case 12..<17:
+            return "Good afternoon"
+        case 17..<21:
+            return "Good evening"
+        default:
+            return "Good night"
         }
     }
 
