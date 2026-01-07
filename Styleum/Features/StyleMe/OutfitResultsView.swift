@@ -25,8 +25,8 @@ struct OutfitResultsView: View {
     @State private var isXPBonus = false
 
     // Drawer constants
-    private let drawerPeekHeight: CGFloat = 180
-    private let drawerExpandedHeight: CGFloat = 420
+    private let drawerPeekHeight: CGFloat = 120
+    private let drawerExpandedHeight: CGFloat = 400
 
     private var outfits: [ScoredOutfit] { outfitRepo.todaysOutfits }
     private var currentOutfit: ScoredOutfit? {
@@ -107,7 +107,9 @@ struct OutfitResultsView: View {
     // MARK: - Hero Image
 
     private func outfitHeroImage(_ outfit: ScoredOutfit, geometry: GeometryProxy) -> some View {
-        VStack {
+        let availableHeight = geometry.size.height - drawerPeekHeight - 100 // top bar + padding
+
+        return VStack {
             if let heroUrl = heroImageUrl(for: outfit) {
                 AsyncImage(url: URL(string: heroUrl)) { phase in
                     switch phase {
@@ -115,8 +117,8 @@ struct OutfitResultsView: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: geometry.size.width)
-                            .frame(maxHeight: geometry.size.height * 0.55)
+                            .frame(maxWidth: max(1, geometry.size.width))
+                            .frame(maxHeight: max(1, availableHeight))
                     case .failure, .empty:
                         imagePlaceholder
                     @unknown default:
@@ -128,7 +130,7 @@ struct OutfitResultsView: View {
             }
             Spacer()
         }
-        .padding(.top, 100)
+        .padding(.top, 90)
     }
 
     private var imagePlaceholder: some View {
@@ -230,22 +232,18 @@ struct OutfitResultsView: View {
     // MARK: - Drag Handle
 
     private var drawerHandle: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             Capsule()
-                .fill(Color(hex: "E0E0E0"))
-                .frame(width: 36, height: 4)
-                .padding(.top, 10)
-
-            Button {
-                withAnimation { drawerExpanded.toggle() }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(drawerExpanded ? "Less" : "Details")
-                        .font(.system(size: 12, weight: .medium))
-                    Image(systemName: drawerExpanded ? "chevron.down" : "chevron.up")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .foregroundColor(AppColors.textSecondary)
+                .fill(Color(hex: "D0D0D0"))
+                .frame(width: 40, height: 4)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                drawerExpanded.toggle()
             }
         }
     }
@@ -253,10 +251,10 @@ struct OutfitResultsView: View {
     // MARK: - Peeking Content (Always Visible)
 
     private func peekingContent(outfit: ScoredOutfit) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             // Item thumbnails row
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     ForEach(outfit.items ?? [], id: \.id) { item in
                         AsyncImage(url: URL(string: item.imageUrl ?? "")) { phase in
                             switch phase {
@@ -270,8 +268,8 @@ struct OutfitResultsView: View {
                                 Rectangle().fill(Color(hex: "F5F5F5"))
                             }
                         }
-                        .frame(width: 44, height: 44)
-                        .cornerRadius(8)
+                        .frame(width: 36, height: 36)
+                        .cornerRadius(6)
                         .clipped()
                     }
                 }
@@ -281,14 +279,14 @@ struct OutfitResultsView: View {
             // "Why it works" teaser (truncated)
             if !outfit.whyItWorks.isEmpty {
                 Text(outfit.whyItWorks)
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundColor(AppColors.textSecondary)
-                    .lineLimit(drawerExpanded ? nil : 1)
+                    .lineLimit(1)
                     .truncationMode(.tail)
                     .padding(.horizontal, 20)
             }
         }
-        .padding(.top, 8)
+        .padding(.top, 4)
     }
 
     // MARK: - Expanded Content
@@ -360,49 +358,42 @@ struct OutfitResultsView: View {
     // MARK: - Action Buttons
 
     private func actionButtons(outfit: ScoredOutfit) -> some View {
-        VStack(spacing: 12) {
-            // Outfit name + weather
-            VStack(spacing: 4) {
-                Text(outfit.aiHeadline)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(AppColors.textPrimary)
+        VStack(spacing: 16) {
+            // Outfit name - prominent
+            Text(outfit.aiHeadline)
+                .font(.system(size: 20, weight: .semibold, design: .serif))
+                .foregroundColor(AppColors.textPrimary)
+                .multilineTextAlignment(.center)
 
-                if let weather = outfitRepo.currentWeather {
-                    Text("Perfect for \(Int(weather.tempFahrenheit))° and \(weather.condition.lowercased())")
-                        .font(.system(size: 13))
-                        .foregroundColor(AppColors.textSecondary)
-                }
+            // Weather context - subtle
+            if let weather = outfitRepo.currentWeather {
+                Text("Perfect for \(Int(weather.tempFahrenheit))° and \(weather.condition.lowercased())")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppColors.textSecondary)
             }
 
             // Buttons
             HStack(spacing: 12) {
-                // Skip - secondary
-                Button {
-                    skipOutfit()
-                } label: {
+                Button { skipOutfit() } label: {
                     Text("Skip")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, 16)
                         .background(Color(hex: "F5F5F5"))
-                        .cornerRadius(10)
+                        .cornerRadius(12)
                 }
 
-                // Wear This - primary
-                Button {
-                    wearOutfit()
-                } label: {
+                Button { wearOutfit() } label: {
                     Text("Wear This")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, 16)
                         .background(AppColors.textPrimary)
-                        .cornerRadius(10)
+                        .cornerRadius(12)
                 }
             }
-            .padding(.horizontal, 20)
 
             // Page dots
             HStack(spacing: 6) {
@@ -412,7 +403,9 @@ struct OutfitResultsView: View {
                         .frame(width: 6, height: 6)
                 }
             }
+            .padding(.top, 4)
         }
+        .padding(.horizontal, 20)
     }
 
     // MARK: - Gestures
