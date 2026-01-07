@@ -115,11 +115,11 @@ struct WardrobeScreen: View {
                 ScrollView {
                     LazyVGrid(
                         columns: [
-                            GridItem(.flexible(), spacing: 12),
-                            GridItem(.flexible(), spacing: 12)
+                            GridItem(.flexible(), spacing: 14),
+                            GridItem(.flexible(), spacing: 14)
                         ],
                         alignment: .center,
-                        spacing: 12
+                        spacing: 16
                     ) {
                         ForEach(filteredItems) { item in
                             WardrobeItemCard(item: item, namespace: wardrobeNamespace)
@@ -178,22 +178,12 @@ struct WardrobeItemCard: View {
             .background(Color(hex: "F8F8F8"))  // Clean near-white for transparent images
 
             // Item info - minimal, below image
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.itemName ?? item.category?.displayName ?? "Item")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(AppColors.textPrimary)
-                    .lineLimit(1)
-
-                if let category = item.category?.displayName {
-                    Text(category)
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(AppColors.textMuted)
-                        .lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 4)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
+            Text(item.itemName ?? item.category?.displayName ?? "Item")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(AppColors.textPrimary)
+                .lineLimit(1)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 4)
         }
         .frame(maxWidth: .infinity)
         .background(Color.clear)
