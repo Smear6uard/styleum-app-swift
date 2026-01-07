@@ -21,47 +21,79 @@ struct WardrobeScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: AppSpacing.md) {
-                HStack {
+            // Editorial Header
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("My Wardrobe")
-                        .font(AppTypography.headingLarge)
+                        .font(.system(size: 28, weight: .bold, design: .serif))
+                        .foregroundColor(AppColors.textPrimary)
 
-                    Spacer()
-
-                    Text("\(wardrobeService.items.count)")
-                        .font(AppTypography.labelMedium)
+                    Text("\(wardrobeService.items.count) pieces")
+                        .font(.system(size: 14))
                         .foregroundColor(AppColors.textSecondary)
                 }
-                .padding(.horizontal, AppSpacing.pageMargin)
 
-                // Add button - black CTA
+                Spacer()
+
+                // Circular add button
                 Button {
+                    HapticManager.shared.medium()
                     coordinator.present(.addItem)
                 } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Add to Closet")
-                            .font(AppTypography.labelLarge)
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(AppColors.black)
-                    .cornerRadius(AppSpacing.radiusMd)
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(AppColors.textPrimary)
+                        .frame(width: 44, height: 44)
+                        .background(AppColors.backgroundSecondary)
+                        .clipShape(Circle())
                 }
                 .buttonStyle(ScaleButtonStyle())
-                .padding(.horizontal, AppSpacing.pageMargin)
-
-                // Underline tabs with multi-select
-                UnderlineTabs(
-                    tabs: categories,
-                    selectedTabs: $selectedCategories,
-                    allowMultiSelect: true
-                )
             }
+            .padding(.horizontal, AppSpacing.pageMargin)
             .padding(.top, AppSpacing.md)
+            .padding(.bottom, AppSpacing.sm)
+
+            // Editorial underline filters
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 24) {
+                    ForEach(categories, id: \.self) { category in
+                        let isSelected = selectedCategories.contains(category)
+                        VStack(spacing: 6) {
+                            Text(category)
+                                .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                                .foregroundColor(isSelected ? AppColors.textPrimary : AppColors.textMuted)
+
+                            // Underline indicator
+                            Rectangle()
+                                .fill(isSelected ? AppColors.textPrimary : Color.clear)
+                                .frame(height: 1.5)
+                        }
+                        .onTapGesture {
+                            // Single tap = select only this category
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedCategories = [category]
+                            }
+                        }
+                        .onLongPressGesture(minimumDuration: 0.3) {
+                            // Long press = toggle in multi-select
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                if selectedCategories.contains(category) {
+                                    selectedCategories.remove(category)
+                                    if selectedCategories.isEmpty {
+                                        selectedCategories = ["All"]
+                                    }
+                                } else {
+                                    selectedCategories.remove("All")
+                                    selectedCategories.insert(category)
+                                }
+                            }
+                            HapticManager.shared.light()
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            .padding(.bottom, AppSpacing.md)
 
             // Content
             if wardrobeService.isLoading && wardrobeService.items.isEmpty {
@@ -83,10 +115,11 @@ struct WardrobeScreen: View {
                 ScrollView {
                     LazyVGrid(
                         columns: [
-                            GridItem(.flexible(), spacing: AppSpacing.md),
-                            GridItem(.flexible(), spacing: AppSpacing.md)
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
                         ],
-                        spacing: AppSpacing.md
+                        alignment: .center,
+                        spacing: 12
                     ) {
                         ForEach(filteredItems) { item in
                             WardrobeItemCard(item: item, namespace: wardrobeNamespace)
@@ -96,7 +129,8 @@ struct WardrobeScreen: View {
                                 }
                         }
                     }
-                    .padding(AppSpacing.pageMargin)
+                    .padding(.horizontal, AppSpacing.pageMargin)
+                    .padding(.bottom, AppSpacing.xl)
                 }
                 .refreshable {
                     HapticManager.shared.light()
@@ -112,56 +146,75 @@ struct WardrobeScreen: View {
     }
 }
 
-// MARK: - Wardrobe Item Card (fixed overflow)
+// MARK: - Editorial Wardrobe Item Card (3:4 aspect ratio, SSENSE-style)
 struct WardrobeItemCard: View {
     let item: WardrobeItem
     var namespace: Namespace.ID
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Image with proper containment - NO overflow
-            AsyncImage(url: URL(string: item.displayPhotoUrl ?? "")) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
-                    Rectangle()
-                        .fill(AppColors.filterTagBg)
-                        .overlay(
-                            Image(systemName: "photo")
-                                .foregroundColor(AppColors.textMuted)
-                        )
-                case .empty:
-                    Rectangle()
-                        .fill(AppColors.filterTagBg)
-                        .overlay(ProgressView())
-                @unknown default:
-                    Rectangle()
-                        .fill(AppColors.filterTagBg)
+        VStack(alignment: .leading, spacing: 0) {
+            // Image container with DEFINED bounds, then clip
+            GeometryReader { geo in
+                AsyncImage(url: URL(string: item.displayPhotoUrl ?? "")) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: geo.size.width, height: geo.size.width * 4/3)
+                            .clipped()
+                    case .failure:
+                        errorPlaceholder
+                    case .empty:
+                        loadingPlaceholder
+                    @unknown default:
+                        loadingPlaceholder
+                    }
                 }
             }
-            .frame(height: 180)
-            .frame(maxWidth: .infinity)
-            .clipped() // Prevent overflow
-            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
+            .aspectRatio(3/4, contentMode: .fit)
+            .clipped()
+            .cornerRadius(6)  // Subtle radius on image only
+            .background(Color(hex: "F8F8F8"))  // Clean near-white for transparent images
 
-            // Info
+            // Item info - minimal, below image
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.itemName ?? item.category?.displayName ?? "Item")
-                    .font(AppTypography.labelMedium)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(AppColors.textPrimary)
                     .lineLimit(1)
 
-                if let brand = item.brand, !brand.isEmpty {
-                    Text(brand)
-                        .font(AppTypography.bodySmall)
-                        .foregroundColor(AppColors.textSecondary)
+                if let category = item.category?.displayName {
+                    Text(category)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(AppColors.textMuted)
                         .lineLimit(1)
                 }
             }
+            .padding(.horizontal, 4)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
         }
+        .frame(maxWidth: .infinity)
+        .background(Color.clear)
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)  // Soft diffuse shadow for depth
+        .shadow(color: .black.opacity(0.04), radius: 2, x: 0, y: 1)  // Tight shadow for definition
+    }
+
+    private var loadingPlaceholder: some View {
+        Rectangle()
+            .fill(Color(hex: "F8F8F8"))
+            .overlay(ProgressView().tint(AppColors.textMuted))
+    }
+
+    private var errorPlaceholder: some View {
+        Rectangle()
+            .fill(Color(hex: "F8F8F8"))
+            .overlay(
+                Image(systemName: "photo")
+                    .font(.system(size: 24))
+                    .foregroundColor(AppColors.textMuted)
+            )
     }
 }
 
