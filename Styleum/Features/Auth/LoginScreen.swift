@@ -94,14 +94,34 @@ struct LoginScreen: View {
             }
             .padding(.horizontal, AppSpacing.pageMargin)
 
-            // Terms - subtle
-            Text("By continuing, you agree to our Terms of Service and Privacy Policy")
-                .font(.system(size: 12, weight: .regular))
-                .foregroundColor(AppColors.textMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, AppSpacing.xl)
-                .padding(.top, AppSpacing.lg)
-                .padding(.bottom, AppSpacing.xl)
+            // Terms - subtle with tappable links
+            VStack(spacing: 4) {
+                Text("By continuing, you agree to our")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppColors.textMuted)
+
+                HStack(spacing: 4) {
+                    Button("Terms of Service") {
+                        openURL("https://styleum.xyz/terms")
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(AppColors.textSecondary)
+
+                    Text("and")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppColors.textMuted)
+
+                    Button("Privacy Policy") {
+                        openURL("https://styleum.xyz/privacy")
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(AppColors.textSecondary)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, AppSpacing.xl)
+            .padding(.top, AppSpacing.lg)
+            .padding(.bottom, AppSpacing.xl)
         }
         .background(AppColors.background)
         .overlay {
@@ -126,6 +146,11 @@ struct LoginScreen: View {
             print("🔑 [LOGIN] authService.isLoading: \(authService.isLoading)")
             print("🔑 [LOGIN] authService.currentUser exists: \(authService.currentUser != nil)")
         }
+    }
+
+    private func openURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 

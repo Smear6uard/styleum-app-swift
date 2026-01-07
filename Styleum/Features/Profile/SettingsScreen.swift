@@ -53,15 +53,35 @@ struct SettingsScreen: View {
                 } trailing: {
                     EmptyView()
                 }
+            }
 
+            Section("Legal") {
                 ListRow(
-                    title: "Privacy",
-                    action: {}
+                    title: "Privacy Policy",
+                    action: {
+                        openURL("https://styleum.xyz/privacy")
+                    }
                 ) {
-                    Image(symbol: .info)
+                    Image(systemName: "hand.raised")
                         .foregroundColor(AppColors.textSecondary)
                 } trailing: {
-                    EmptyView()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppColors.textMuted)
+                }
+
+                ListRow(
+                    title: "Terms of Service",
+                    action: {
+                        openURL("https://styleum.xyz/terms")
+                    }
+                ) {
+                    Image(systemName: "doc.text")
+                        .foregroundColor(AppColors.textSecondary)
+                } trailing: {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppColors.textMuted)
                 }
             }
 
@@ -104,6 +124,11 @@ struct SettingsScreen: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func openURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 
