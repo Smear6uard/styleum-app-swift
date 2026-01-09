@@ -122,6 +122,11 @@ final class WardrobeService {
         }
 
         HapticManager.shared.success()
+
+        // 6. Award gamification XP and update challenge progress
+        GamificationService.shared.awardXP(5, reason: .itemAdded)
+        GamificationService.shared.updateChallengeProgress(for: .addItem)
+
         return createdItem
     }
 
@@ -193,6 +198,13 @@ final class WardrobeService {
         }
     }
 
+    // MARK: - Clear Cache
+
+    /// Clears all local wardrobe data (used on account deletion)
+    func clearCache() {
+        items = []
+    }
+
     // MARK: - Mark as Worn
 
     func markAsWorn(id: String) async throws {
@@ -258,16 +270,33 @@ final class WardrobeService {
     }
 
     var hasEnoughForOutfits: Bool {
-        let tops = items(for: .tops).count
-        let bottoms = items(for: .bottoms).count
-        let shoes = items(for: .shoes).count
-        return tops >= 1 && bottoms >= 1 && shoes >= 1
+        print("🎨 [WARDROBE] ========== CHECKING hasEnoughForOutfits ==========")
+        print("🎨 [WARDROBE] Total items: \(items.count)")
+
+        for item in items {
+            print("🎨 [WARDROBE] Item: \(item.itemName ?? "unnamed") - Category: \(item.category?.rawValue ?? "nil")")
+        }
+
+        let tops = items(for: .tops)
+        let bottoms = items(for: .bottoms)
+        let shoes = items(for: .shoes)
+
+        print("🎨 [WARDROBE] Tops count: \(tops.count)")
+        print("🎨 [WARDROBE] Bottoms count: \(bottoms.count)")
+        print("🎨 [WARDROBE] Shoes count: \(shoes.count)")
+
+        let hasEnough = tops.count >= 1 && bottoms.count >= 1 && shoes.count >= 1
+        print("🎨 [WARDROBE] hasEnoughForOutfits: \(hasEnough)")
+        print("🎨 [WARDROBE] ===========================================")
+
+        return hasEnough
     }
 }
 
 // MARK: - Request Types
 
 struct WardrobeItemUpdate: Encodable {
+    var itemName: String?
     var timesWorn: Int?
     var lastWorn: Date?
     var tags: [String]?
@@ -280,6 +309,7 @@ struct WardrobeItemUpdate: Encodable {
     var occasions: [String]?
 
     enum CodingKeys: String, CodingKey {
+        case itemName = "item_name"
         case timesWorn = "times_worn"
         case lastWorn = "last_worn"
         case tags
@@ -302,9 +332,12 @@ enum WardrobeError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notAuthenticated: return "Please sign in to add items"
-        case .imageProcessingFailed: return "Failed to process image"
-        case .uploadFailed: return "Failed to upload image"
+        case .notAuthenticated:
+            return "Please sign in to add items to your wardrobe."
+        case .imageProcessingFailed:
+            return "We had trouble with that photo. Try a different image or take a new one."
+        case .uploadFailed:
+            return "Couldn't save your item right now. Check your connection and try again."
         }
     }
 }

@@ -38,7 +38,7 @@ struct ItemDetailScreen: View {
                                     .font(.system(size: 48))
                                     .foregroundColor(AppColors.textMuted)
                             case .empty:
-                                ProgressView()
+                                CardImageSkeleton()
                             @unknown default:
                                 EmptyView()
                             }
@@ -180,6 +180,7 @@ struct ItemEditSheet: View {
 
     // Edit state
     @State private var editedName: String = ""
+    @State private var saveNameTask: Task<Void, Never>?
     @State private var showCategoryPicker = false
     @State private var showColorPicker = false
     @State private var showStylePicker = false
@@ -431,8 +432,17 @@ struct ItemEditSheet: View {
     }
 
     private func saveName(_ name: String) {
-        // Note: itemName updates not currently supported by API
-        // This is a placeholder for when the API supports it
+        // Cancel any pending save task
+        saveNameTask?.cancel()
+
+        // Debounce: wait 500ms before saving to avoid excessive API calls
+        saveNameTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+
+            let updates = WardrobeItemUpdate(itemName: name.isEmpty ? nil : name)
+            try? await wardrobeService.updateItem(id: itemId, updates: updates)
+        }
     }
 
     private func formalityLabel(_ score: Int) -> String {

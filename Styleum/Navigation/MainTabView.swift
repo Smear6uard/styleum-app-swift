@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @State private var coordinator = AppCoordinator()
+    @State private var tierManager = TierManager.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,6 +37,13 @@ struct MainTabView: View {
             fullScreenContent(for: destination)
         }
         .environment(coordinator)
+        .task {
+            // Check if new free user needs tier onboarding
+            await tierManager.refresh()
+            if !tierManager.hasSeenTierOnboarding && tierManager.isFree {
+                coordinator.present(.tierOnboarding)
+            }
+        }
     }
 
     @ViewBuilder
@@ -49,6 +57,10 @@ struct MainTabView: View {
             OutfitOptionsSheet(outfitId: outfitId)
         case .achievementDetail(let achievementId):
             AchievementDetailSheet(achievementId: achievementId)
+        case .createOutfit(let itemIds):
+            CreateOutfitSheet(itemIds: itemIds)
+        case .tierOnboarding:
+            TierOnboardingSheet()
         }
     }
 
@@ -146,7 +158,11 @@ func destinationView(for destination: AppCoordinator.Destination) -> some View {
     case .editProfile:
         EditProfileScreen()
     case .subscription:
-        SubscriptionScreen()
+        ProUpgradeView(trigger: .manual)
+    case .deleteAccount:
+        DeleteAccountView()
+    case .notificationSettings:
+        NotificationSettingsScreen()
     }
 }
 

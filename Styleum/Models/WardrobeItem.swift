@@ -60,7 +60,8 @@ struct WardrobeItem: Codable, Identifiable, Equatable, Hashable {
     }
 
     var displayPhotoUrl: String? {
-        photoUrlClean ?? photoUrl
+        // Priority: processed (studio mode) > thumbnail > original
+        photoUrlClean ?? thumbnailUrl ?? photoUrl
     }
 
     var hasStudioMode: Bool {

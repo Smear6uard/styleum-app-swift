@@ -78,7 +78,9 @@ final class ShareService {
 
     /// Handle successful share completion
     private func handleShareCompleted() async {
-        // Share tracking is handled implicitly by the API
+        // Award XP for sharing
+        GamificationService.shared.awardXP(15, reason: .outfitShared)
+
         // Success haptic for share completion
         HapticManager.shared.success()
     }

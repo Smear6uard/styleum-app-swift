@@ -35,17 +35,17 @@ struct ScoredOutfit: Identifiable, Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id
-        case wardrobeItemIds = "wardrobe_item_ids"
+        case wardrobeItemIds = "wardrobeItemIds"
         case score
-        case whyItWorks = "why_it_works"
-        case stylingTip = "style_notes"
+        case whyItWorks = "whyItWorks"
+        case stylingTip = "stylingTip"
         case vibes
         case occasion
         case createdAt = "created_at"
         case headline
-        case colorHarmony = "color_harmony"
+        case colorHarmony = "colorHarmony"
         case vibe
-        case changesMade = "changes_made"
+        case changesMade = "changesMade"
         case items
     }
 
@@ -115,9 +115,26 @@ struct ScoredOutfit: Identifiable, Codable, Equatable {
     }
 }
 
-struct OutfitItemRole: Codable, Equatable {
+struct OutfitItemRole: Codable, Equatable, Identifiable {
     let id: String
-    let role: String // "top", "bottom", "shoes", "outerwear", "accessory"
+    let role: String // "top", "bottom", "footwear", "outerwear", "accessory"
+    let imageUrl: String?
+    let category: String?
+    let subcategory: String?
+    let itemName: String?
+    let colors: ItemColors?
+
+    enum CodingKeys: String, CodingKey {
+        case id, role, category, subcategory, colors
+        case imageUrl = "imageUrl"
+        case itemName = "itemName"
+    }
+}
+
+struct ItemColors: Codable, Equatable {
+    let primary: String?
+    let secondary: [String]?
+    let hex: String?
 }
 
 // MARK: - Feedback Type for Regeneration

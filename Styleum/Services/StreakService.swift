@@ -20,10 +20,7 @@ final class StreakService {
     // MARK: - Fetch Gamification Stats
 
     func fetchStats() async {
-        guard SupabaseManager.shared.currentUserId != nil else {
-            print("[StreakService] No user ID")
-            return
-        }
+        guard SupabaseManager.shared.currentUserId != nil else { return }
 
         isLoading = true
         defer { isLoading = false }
@@ -38,10 +35,9 @@ final class StreakService {
             xp = stats.xp
             level = stats.level
 
-            print("[StreakService] Fetched stats: streak=\(currentStreak), level=\(level)")
+            self.error = nil
         } catch {
             self.error = error
-            print("[StreakService] Fetch error: \(error)")
         }
     }
 
@@ -49,6 +45,7 @@ final class StreakService {
 
     func useStreakFreeze() async -> Bool {
         guard SupabaseManager.shared.currentUserId != nil else { return false }
+        guard streakFreezes > 0 else { return false }
 
         do {
             let stats = try await api.useStreakFreeze()
@@ -58,11 +55,9 @@ final class StreakService {
             streakFreezes = stats.streakFreezes
 
             HapticManager.shared.success()
-            print("[StreakService] Used streak freeze, \(streakFreezes) remaining")
             return true
         } catch {
             self.error = error
-            print("[StreakService] Use freeze error: \(error)")
             HapticManager.shared.error()
             return false
         }
@@ -80,11 +75,9 @@ final class StreakService {
             longestStreak = stats.longestStreak
 
             HapticManager.shared.streakMilestone()
-            print("[StreakService] Restored streak to \(currentStreak)")
             return true
         } catch {
             self.error = error
-            print("[StreakService] Restore error: \(error)")
             HapticManager.shared.error()
             return false
         }
@@ -94,9 +87,23 @@ final class StreakService {
 
     func checkStreakMilestone(_ streak: Int) {
         let milestones = [3, 7, 14, 30, 100]
+
         if milestones.contains(streak) {
             HapticManager.shared.streakMilestone()
         }
+    }
+
+    // MARK: - Reset State
+
+    func reset() {
+        currentStreak = 0
+        longestStreak = 0
+        totalDaysActive = 0
+        streakFreezes = 0
+        xp = 0
+        level = 1
+        isLoading = false
+        error = nil
     }
 }
 

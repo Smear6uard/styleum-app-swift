@@ -6,6 +6,11 @@ enum AppColors {
     static let slateDark = Color(hex: "3F474F")
     static let slateLight = Color(hex: "9BA5AE")
 
+    // Warm Brown Accents - editorial, fashion-forward
+    static let brownPrimary = Color(red: 0.18, green: 0.14, blue: 0.11)    // #2E241C
+    static let brownSecondary = Color(red: 0.24, green: 0.20, blue: 0.16)  // #3D3329
+    static let brownLight = Color(red: 0.35, green: 0.30, blue: 0.26)      // #594D42
+
     // Primary
     static let black = Color(hex: "111111")
     static let white = Color.white
@@ -42,6 +47,7 @@ enum AppColors {
     static let danger = Color(hex: "B42318")
     static let success = Color(hex: "059669")
     static let warning = Color(hex: "D97706")
+    static let info = Color(hex: "0EA5E9")
 
     // Dark Bottom Sheet (fixed dark)
     static let darkSheet = Color(hex: "111111")

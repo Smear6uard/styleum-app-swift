@@ -7,7 +7,8 @@ enum OnboardingStep: Int, CaseIterable {
     case department = 2
     case styleSwipes = 3
     case referralSource = 4
-    case complete = 5
+    case notifications = 5
+    case complete = 6
 }
 
 /// Main coordinator view for the onboarding flow
@@ -81,6 +82,19 @@ struct OnboardingContainerView: View {
                         }
                     )
                     .tag(OnboardingStep.referralSource)
+
+                    OnboardingNotificationTimeView(
+                        onContinue: { hour in
+                            print("📋 [ONBOARDING] Notification time selected: \(hour)")
+                            userData.notificationHour = hour
+                            nextStep()
+                        },
+                        onSkip: {
+                            print("📋 [ONBOARDING] Notification time skipped (will use default 9 AM)")
+                            nextStep()
+                        }
+                    )
+                    .tag(OnboardingStep.notifications)
 
                     OnboardingCompleteView(
                         firstName: userData.firstName,
@@ -158,6 +172,7 @@ struct OnboardingContainerView: View {
         print("📋 [ONBOARDING]   - likedStyleIds count: \(userData.likedStyleIds.count)")
         print("📋 [ONBOARDING]   - dislikedStyleIds count: \(userData.dislikedStyleIds.count)")
         print("📋 [ONBOARDING]   - referralSource: \(userData.referralSource ?? "nil")")
+        print("📋 [ONBOARDING]   - notificationHour: \(userData.notificationHour.map { String($0) } ?? "nil (will use 9 AM)")")
 
         let totalSwipes = userData.likedStyleIds.count + userData.dislikedStyleIds.count
         if totalSwipes == 0 {
@@ -182,6 +197,31 @@ struct OnboardingContainerView: View {
                 )
 
                 print("📋 [ONBOARDING] ✅ API call successful")
+
+                // Save notification preferences
+                print("📋 [ONBOARDING] Setting up notification preferences...")
+                let notificationHour = userData.notificationHour ?? 9  // Default to 9 AM
+                let timeString = NotificationPreferences.timeString(from: notificationHour)
+                print("📋 [ONBOARDING] Notification time: \(timeString)")
+
+                // Request push notification permission
+                print("📋 [ONBOARDING] Requesting push notification permission...")
+                let pushGranted = await PushNotificationService.shared.requestAuthorization()
+                print("📋 [ONBOARDING] Push permission granted: \(pushGranted)")
+
+                // Save notification preferences to backend
+                do {
+                    print("📋 [ONBOARDING] Saving notification preferences to backend...")
+                    _ = try await StyleumAPI.shared.updateNotificationPreferences(
+                        enabled: pushGranted,
+                        time: timeString,
+                        timezone: TimeZone.current.identifier
+                    )
+                    print("📋 [ONBOARDING] ✅ Notification preferences saved")
+                } catch {
+                    // Non-fatal: log but continue
+                    print("📋 [ONBOARDING] ⚠️ Failed to save notification preferences: \(error)")
+                }
 
                 HapticManager.shared.success()
 

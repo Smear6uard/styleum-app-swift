@@ -15,6 +15,8 @@ final class AchievementsService {
     var isLoading = false
     var error: Error?
 
+    // MARK: - Computed Properties
+
     var unlockedCount: Int {
         achievements.filter { $0.isUnlocked }.count
     }
@@ -32,20 +34,16 @@ final class AchievementsService {
     // MARK: - Fetch Achievements
 
     func fetchAchievements() async {
-        guard SupabaseManager.shared.currentUserId != nil else {
-            print("[AchievementsService] No user ID")
-            return
-        }
+        guard SupabaseManager.shared.currentUserId != nil else { return }
 
         isLoading = true
         defer { isLoading = false }
 
         do {
             achievements = try await api.getAchievements()
-            print("[AchievementsService] Fetched \(achievements.count) achievements, \(unlockedCount) unlocked")
+            self.error = nil
         } catch {
             self.error = error
-            print("[AchievementsService] Fetch error: \(error)")
         }
     }
 
@@ -61,10 +59,8 @@ final class AchievementsService {
             if let index = achievements.firstIndex(where: { $0.id == achievementId }) {
                 achievements[index].seenAt = Date()
             }
-
-            print("[AchievementsService] Marked \(achievementId) as seen")
         } catch {
-            print("[AchievementsService] Mark seen error: \(error)")
+            print("Failed to mark achievement as seen: \(error)")
         }
     }
 
@@ -84,5 +80,13 @@ final class AchievementsService {
         return filtered
             .sorted { $0.progressPercent > $1.progressPercent }
             .first
+    }
+
+    // MARK: - Reset State
+
+    func reset() {
+        achievements = []
+        isLoading = false
+        error = nil
     }
 }

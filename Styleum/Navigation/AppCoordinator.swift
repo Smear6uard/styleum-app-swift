@@ -16,6 +16,65 @@ final class AppCoordinator {
     /// Item pre-selected from wardrobe for "Style this piece" flow
     var preSelectedWardrobeItem: WardrobeItem?
 
+    init() {
+        // Observe deep link notifications from push notifications
+        NotificationCenter.default.addObserver(
+            forName: .navigateToDailyOutfit,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let coordinator = self else { return }
+            Task { @MainActor in
+                coordinator.handleDailyOutfitDeepLink()
+            }
+        }
+
+        // Observe quick action: Style Me
+        NotificationCenter.default.addObserver(
+            forName: .navigateToStyleMe,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let coordinator = self else { return }
+            Task { @MainActor in
+                coordinator.switchTab(to: .styleMe)
+            }
+        }
+
+        // Observe quick action: Add Item
+        NotificationCenter.default.addObserver(
+            forName: .openAddItem,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let coordinator = self else { return }
+            Task { @MainActor in
+                coordinator.switchTab(to: .wardrobe)
+                // Slight delay to ensure tab switch completes
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+                coordinator.present(.addItem)
+            }
+        }
+
+        // Observe quick action: My Wardrobe
+        NotificationCenter.default.addObserver(
+            forName: .navigateToWardrobe,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let coordinator = self else { return }
+            Task { @MainActor in
+                coordinator.switchTab(to: .wardrobe)
+            }
+        }
+    }
+
+    /// Handles deep link navigation to Style Me tab
+    private func handleDailyOutfitDeepLink() {
+        print("🔗 [NAV] Deep link: navigating to Style Me tab")
+        switchTab(to: .styleMe)
+    }
+
     // MARK: - Tabs
     enum Tab: Int, CaseIterable {
         case home = 0
@@ -52,6 +111,8 @@ final class AppCoordinator {
         case settings
         case editProfile
         case subscription
+        case deleteAccount
+        case notificationSettings
     }
 
     // MARK: - Sheet Destinations
@@ -60,6 +121,8 @@ final class AppCoordinator {
         case customizeStyleMe
         case outfitOptions(outfitId: String)
         case achievementDetail(achievementId: String)
+        case createOutfit(itemIds: [String])
+        case tierOnboarding
 
         var id: String {
             switch self {
@@ -67,6 +130,8 @@ final class AppCoordinator {
             case .customizeStyleMe: return "customizeStyleMe"
             case .outfitOptions(let id): return "outfitOptions_\(id)"
             case .achievementDetail(let id): return "achievementDetail_\(id)"
+            case .createOutfit: return "createOutfit"
+            case .tierOnboarding: return "tierOnboarding"
             }
         }
     }

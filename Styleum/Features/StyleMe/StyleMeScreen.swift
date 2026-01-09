@@ -5,6 +5,7 @@ struct StyleMeScreen: View {
     @State private var wardrobeService = WardrobeService.shared
     @State private var outfitRepo = OutfitRepository.shared
     @State private var api = StyleumAPI.shared
+    @State private var tierManager = TierManager.shared
     @State private var usageLimits: UsageLimits?
 
     // Progress bar state
@@ -13,6 +14,9 @@ struct StyleMeScreen: View {
 
     // Animation state
     @State private var hasAppeared = false
+
+    // Paywall state
+    @State private var showCreditsExhausted = false
 
     var body: some View {
         ZStack {
@@ -88,6 +92,7 @@ struct StyleMeScreen: View {
 
                     // Customize - secondary, subtle
                     Button {
+                        HapticManager.shared.light()
                         coordinator.present(.customizeStyleMe)
                     } label: {
                         Text("Customize")
@@ -108,12 +113,26 @@ struct StyleMeScreen: View {
             }
         }
         .task {
+            await tierManager.refresh()
             await wardrobeService.fetchItems()
             await fetchLimits()
         }
         .onAppear {
             withAnimation {
                 hasAppeared = true
+            }
+        }
+        .sheet(isPresented: $showCreditsExhausted) {
+            if let usage = tierManager.tierInfo?.usage {
+                CreditsExhaustedView(
+                    creditsUsed: usage.styleCreditsUsed,
+                    creditsLimit: usage.styleCreditsLimit,
+                    daysUntilReset: usage.daysUntilReset,
+                    onUpgrade: {
+                        coordinator.navigate(to: .subscription)
+                    }
+                )
+                .presentationDetents([.medium])
             }
         }
     }
@@ -154,10 +173,20 @@ struct StyleMeScreen: View {
     private func generateOutfit() {
         HapticManager.shared.medium()
 
+        // Check if user has credits remaining (free tier only)
+        if !tierManager.isPro && tierManager.styleCreditsRemaining <= 0 {
+            showCreditsExhausted = true
+            return
+        }
+
         Task {
             await outfitRepo.generateFreshOutfits(preferences: nil)
 
-            // Refresh credits after generation
+            // Optimistic update: decrement credits locally
+            tierManager.decrementStyleCredits()
+
+            // Refresh tier info and credits after generation
+            await tierManager.refresh()
             await fetchLimits()
 
             if !outfitRepo.sessionOutfits.isEmpty {

@@ -75,6 +75,15 @@ final class StyleumAPI {
             throw APIError.invalidResponse
         }
 
+        // Debug logging for all requests
+        print("🌐 [API] \(method) \(endpoint) → \(httpResponse.statusCode)")
+        if let rawString = String(data: data, encoding: .utf8) {
+            // Log all responses for gamification endpoints, or errors for other endpoints
+            if endpoint.contains("gamification") || endpoint.contains("achievements") || httpResponse.statusCode != 200 {
+                print("🌐 [API] Response body: \(rawString.prefix(1000))")
+            }
+        }
+
         // Handle error status codes
         switch httpResponse.statusCode {
         case 200...299:
@@ -113,8 +122,22 @@ final class StyleumAPI {
 
         do {
             return try decoder.decode(T.self, from: data)
+        } catch let decodingError as DecodingError {
+            switch decodingError {
+            case .keyNotFound(let key, let context):
+                print("🌐 [API] ❌ Key not found: '\(key.stringValue)' at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+            case .typeMismatch(let type, let context):
+                print("🌐 [API] ❌ Type mismatch: expected \(type) at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+            case .valueNotFound(let type, let context):
+                print("🌐 [API] ❌ Value not found: \(type) at path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+            case .dataCorrupted(let context):
+                print("🌐 [API] ❌ Data corrupted at: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+            @unknown default:
+                print("🌐 [API] ❌ Unknown decode error: \(decodingError)")
+            }
+            throw APIError.decodingError(decodingError)
         } catch {
-            print("Decoding error: \(error)")
+            print("🌐 [API] ❌ Non-decoding error: \(error)")
             throw APIError.decodingError(error)
         }
     }
@@ -268,8 +291,24 @@ final class StyleumAPI {
 
     // MARK: - Outfits
 
-    func getGeneratedOutfits() async throws -> [ScoredOutfit] {
-        try await request(endpoint: "/outfits")
+    /// Fetches pre-generated outfits (created by 4AM cron job)
+    func getPreGeneratedOutfits() async throws -> GenerateOutfitsResult? {
+        print("🌐 [API] GET /outfits - Fetching pre-generated outfits...")
+
+        do {
+            let result: GenerateOutfitsResult = try await request(endpoint: "/outfits")
+
+            if result.outfits.isEmpty {
+                print("🌐 [API] No pre-generated outfits available")
+                return nil
+            }
+
+            print("🌐 [API] ✅ Got \(result.outfits.count) pre-generated outfits (source: \(result.source ?? "unknown"))")
+            return result
+        } catch {
+            print("🌐 [API] Pre-generated fetch failed: \(error)")
+            return nil
+        }
     }
 
     func generateOutfits(
@@ -286,17 +325,35 @@ final class StyleumAPI {
             let latitude: Double?
             let longitude: Double?
         }
-        return try await request(
-            endpoint: "/outfits/generate",
-            method: "POST",
-            body: GenerateRequest(
-                occasion: occasion,
-                mood: mood,
-                boldnessLevel: boldnessLevel,
-                latitude: latitude,
-                longitude: longitude
+
+        print("🌐 [API] Calling /outfits/generate")
+
+        do {
+            let result: GenerateOutfitsResult = try await request(
+                endpoint: "/outfits/generate",
+                method: "POST",
+                body: GenerateRequest(
+                    occasion: occasion,
+                    mood: mood,
+                    boldnessLevel: boldnessLevel,
+                    latitude: latitude,
+                    longitude: longitude
+                )
             )
-        )
+
+            print("🌐 [API] ✅ Generate returned \(result.outfits.count) outfits")
+            if let first = result.outfits.first {
+                print("🌐 [API] First outfit ID: \(first.id), wardrobeItemIds: \(first.wardrobeItemIds.count)")
+            }
+            if let weather = result.weather {
+                print("🌐 [API] Weather: \(Int(weather.tempFahrenheit))°F, \(weather.condition)")
+            }
+
+            return result
+        } catch {
+            print("🌐 [API] ❌ Generate failed: \(error)")
+            throw error
+        }
     }
 
     func regenerateOutfit(currentIds: [String], feedback: String, occasion: String?) async throws -> RegenerateOutfitResult {
@@ -390,18 +447,106 @@ final class StyleumAPI {
         }
     }
 
+    /// Saves user's location for pre-generation (fire-and-forget)
+    func saveLocationForPreGeneration(latitude: Double, longitude: Double) async {
+        print("🌐 [API] Saving location for pre-generation: \(latitude), \(longitude)")
+
+        struct LocationUpdate: Encodable {
+            let locationLat: Double
+            let locationLng: Double
+
+            enum CodingKeys: String, CodingKey {
+                case locationLat = "location_lat"
+                case locationLng = "location_lng"
+            }
+        }
+
+        do {
+            let _: Profile = try await request(
+                endpoint: "/profile",
+                method: "PUT",
+                body: LocationUpdate(locationLat: latitude, locationLng: longitude)
+            )
+            print("🌐 [API] ✅ Location saved for pre-generation")
+        } catch {
+            print("🌐 [API] Failed to save location: \(error)")
+        }
+    }
+
+    // MARK: - Push Notifications
+
+    func registerPushToken(_ token: String) async throws {
+        struct PushTokenRequest: Encodable {
+            let token: String
+            let platform: String
+        }
+        try await requestNoContent(
+            endpoint: "/profile/push-token",
+            method: "POST",
+            body: PushTokenRequest(token: token, platform: "ios")
+        )
+    }
+
+    func updateNotificationPreferences(enabled: Bool, time: String, timezone: String) async throws -> Profile {
+        struct NotificationPreferencesRequest: Encodable {
+            let pushEnabled: Bool
+            let morningNotificationTime: String
+            let timezone: String
+
+            enum CodingKeys: String, CodingKey {
+                case pushEnabled = "push_enabled"
+                case morningNotificationTime = "morning_notification_time"
+                case timezone
+            }
+        }
+        return try await request(
+            endpoint: "/profile",
+            method: "PATCH",
+            body: NotificationPreferencesRequest(
+                pushEnabled: enabled,
+                morningNotificationTime: time,
+                timezone: timezone
+            )
+        )
+    }
+
     // MARK: - Gamification
 
     func getGamificationStats() async throws -> GamificationStats {
         try await request(endpoint: "/gamification/stats")
     }
 
+    func getDailyChallenges() async throws -> DailyChallengesResponse {
+        try await request(endpoint: "/gamification/daily-challenges")
+    }
+
+    func claimDailyChallenge(id: String) async throws -> ChallengeCompletionResponse {
+        try await request(endpoint: "/gamification/daily-challenges/\(id)/claim", method: "POST")
+    }
+
+    func getActivityHistory(days: Int = 7) async throws -> [DayActivity] {
+        struct ActivityResponse: Decodable {
+            let activities: [DayActivity]
+        }
+        let response: ActivityResponse = try await request(endpoint: "/gamification/activity-history?days=\(days)")
+        return response.activities
+    }
+
+    func getWeeklyChallenge() async throws -> WeeklyChallenge? {
+        struct WeeklyChallengeResponse: Decodable {
+            let challenge: WeeklyChallenge?
+        }
+        let response: WeeklyChallengeResponse = try await request(endpoint: "/gamification/weekly-challenge")
+        return response.challenge
+    }
+
     func getAchievements() async throws -> [Achievement] {
-        try await request(endpoint: "/achievements")
+        let response: AchievementsResponse = try await request(endpoint: "/gamification/achievements")
+        return response.achievements
     }
 
     func markAchievementSeen(id: String) async throws {
-        try await requestNoContent(endpoint: "/achievements/\(id)/seen", method: "POST")
+        try await requestNoContent(endpoint: "/gamification/achievements/\(id)/seen", method: "POST")
     }
 
     func useStreakFreeze() async throws -> GamificationStats {
@@ -420,6 +565,22 @@ final class StyleumAPI {
 
     func getLimits() async throws -> UsageLimits {
         try await request(endpoint: "/subscriptions/limits")
+    }
+
+    func getTierInfo() async throws -> TierInfo {
+        try await request(endpoint: "/users/tier")
+    }
+
+    /// Mark tier onboarding as seen
+    func markTierOnboardingSeen() async throws {
+        try await requestNoContent(endpoint: "/users/tier-onboarding-seen", method: "POST")
+    }
+
+    // MARK: - Account
+
+    /// Permanently deletes the user's account and all associated data
+    func deleteAccount() async throws {
+        try await requestNoContent(endpoint: "/account", method: "DELETE")
     }
 
     // MARK: - Onboarding
@@ -525,23 +686,27 @@ enum APIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL:
-            return "Invalid URL"
+            return "Something went wrong. Please try again."
         case .invalidResponse:
-            return "Invalid response from server"
+            return "We received an unexpected response. Please try again."
         case .unauthorized:
-            return "Please sign in again"
+            return "Your session has expired. Please sign in again."
         case .forbidden:
-            return "Access denied"
+            return "You don't have permission to do that."
         case .notFound:
-            return "Resource not found"
+            return "We couldn't find what you're looking for."
         case .rateLimited:
-            return "Too many requests. Please wait."
+            return "You're doing that too fast. Take a breather and try again."
         case .onboardingAlreadyComplete:
-            return "Onboarding already completed"
+            return "You've already completed setup."
         case .serverError(let message):
+            // If server message looks technical, provide friendly fallback
+            if message.contains("500") || message.contains("error") || message.lowercased().contains("exception") {
+                return "Our servers are having a moment. Please try again shortly."
+            }
             return message
         case .decodingError:
-            return "Failed to process response"
+            return "We received unexpected data. Please try again."
         }
     }
 }
@@ -555,25 +720,7 @@ struct APIErrorResponse: Decodable {
     let onboardingVersion: Int?
 }
 
-struct GamificationStats: Codable {
-    let currentStreak: Int
-    let longestStreak: Int
-    let totalDaysActive: Int
-    let streakFreezes: Int
-    let xp: Int
-    let level: Int
-
-    // Provide defaults for optional fields
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        currentStreak = try container.decodeIfPresent(Int.self, forKey: .currentStreak) ?? 0
-        longestStreak = try container.decodeIfPresent(Int.self, forKey: .longestStreak) ?? 0
-        totalDaysActive = try container.decodeIfPresent(Int.self, forKey: .totalDaysActive) ?? 0
-        streakFreezes = try container.decodeIfPresent(Int.self, forKey: .streakFreezes) ?? 0
-        xp = try container.decodeIfPresent(Int.self, forKey: .xp) ?? 0
-        level = try container.decodeIfPresent(Int.self, forKey: .level) ?? 1
-    }
-}
+// Note: GamificationStats is defined in GamificationService.swift
 
 struct WearOutfitResponse: Decodable {
     let success: Bool
@@ -670,6 +817,8 @@ struct OutfitHistory: Decodable, Identifiable {
 struct GenerateOutfitsResult: Decodable {
     let outfits: [ScoredOutfit]
     let weather: WeatherContext?
+    let count: Int?
+    let source: String?  // "pre_generated", "on_demand", or "none"
 }
 
 struct RegenerateOutfitResult: Decodable {

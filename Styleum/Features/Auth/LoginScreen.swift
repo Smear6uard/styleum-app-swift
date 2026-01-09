@@ -3,6 +3,7 @@ import SwiftUI
 struct LoginScreen: View {
     @State private var authService = AuthService.shared
     @State private var showError = false
+    @State private var showEmailAuth = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -91,6 +92,42 @@ struct LoginScreen: View {
                     )
                 }
                 .buttonStyle(ScaleButtonStyle())
+
+                // Divider
+                HStack(spacing: AppSpacing.md) {
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(AppColors.border)
+                    Text("or")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppColors.textMuted)
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(AppColors.border)
+                }
+                .padding(.vertical, AppSpacing.sm)
+
+                // Continue with Email
+                Button {
+                    showEmailAuth = true
+                } label: {
+                    HStack(spacing: AppSpacing.sm) {
+                        Image(systemName: "envelope")
+                            .font(.system(size: 18))
+                        Text("Continue with Email")
+                            .font(AppTypography.labelMedium)
+                    }
+                    .foregroundColor(AppColors.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(AppColors.background)
+                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+                            .stroke(AppColors.border, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
             }
             .padding(.horizontal, AppSpacing.pageMargin)
 
@@ -139,6 +176,9 @@ struct LoginScreen: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(authService.error?.localizedDescription ?? "Please try again")
+        }
+        .sheet(isPresented: $showEmailAuth) {
+            EmailAuthView()
         }
         .onAppear {
             print("🔑 [LOGIN] ========== LOGIN SCREEN APPEARED ==========")

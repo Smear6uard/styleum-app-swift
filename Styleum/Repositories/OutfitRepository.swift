@@ -9,44 +9,98 @@ final class OutfitRepository {
     private let wardrobeService = WardrobeService.shared
     private let locationService = LocationService.shared
 
-    var todaysOutfits: [ScoredOutfit] = []
-    var currentWeather: WeatherContext?
+    // MARK: - Pre-Generated Outfits (Free, shown on Home)
+
+    var preGeneratedOutfits: [ScoredOutfit] = []
+    var preGeneratedWeather: WeatherContext?
+    private var preGenCacheTimestamp: Date?
+
+    // MARK: - Session Outfits (Fresh generation, uses credits)
+
+    var sessionOutfits: [ScoredOutfit] = []
+    var sessionWeather: WeatherContext?
+
+    // MARK: - Legacy Support (backward compatibility)
+
+    /// Returns session outfits if available, otherwise pre-generated
+    var todaysOutfits: [ScoredOutfit] {
+        sessionOutfits.isEmpty ? preGeneratedOutfits : sessionOutfits
+    }
+
+    /// Returns session weather if available, otherwise pre-generated
+    var currentWeather: WeatherContext? {
+        sessionOutfits.isEmpty ? preGeneratedWeather : sessionWeather
+    }
+
+    // MARK: - State
+
     var isLoading = false
     var isGenerating = false
     var error: Error?
-
-    // Cache
-    private var cacheTimestamp: Date?
-    private let cacheExpiry: TimeInterval = 4 * 60 * 60 // 4 hours
+    var outfitSource: String = "none"  // "pre_generated", "fresh", "none"
 
     private init() {}
 
-    // MARK: - Get Today's Outfits
+    // MARK: - Pre-Generated Outfits (FREE)
 
-    func getTodaysOutfits(forceRefresh: Bool = false) async {
+    /// Load pre-generated outfits on app launch (free, no credits used)
+    func loadPreGeneratedIfAvailable() async {
         guard SupabaseManager.shared.currentUserId != nil else { return }
 
-        // Check cache
-        if !forceRefresh, let timestamp = cacheTimestamp,
-           Date().timeIntervalSince(timestamp) < cacheExpiry,
-           !todaysOutfits.isEmpty {
+        // Skip if we already loaded today
+        if !preGeneratedOutfits.isEmpty,
+           let timestamp = preGenCacheTimestamp,
+           Calendar.current.isDateInToday(timestamp) {
+            print("🌤️ [OutfitRepo] Already have today's pre-generated, skipping")
             return
         }
 
-        isLoading = true
-        defer { isLoading = false }
+        print("🌤️ [OutfitRepo] Loading pre-generated outfits (FREE)...")
 
-        // Try to get cached outfits first, fall back to generation
-        await generateOutfits()
+        if let preGen = try? await api.getPreGeneratedOutfits(), !preGen.outfits.isEmpty {
+            print("🌤️ [OutfitRepo] ✅ API returned \(preGen.outfits.count) outfits")
+            print("🌤️ [OutfitRepo] Source: \(preGen.source ?? "unknown")")
+            if let first = preGen.outfits.first {
+                print("🌤️ [OutfitRepo] First outfit headline: \(first.headline ?? "none")")
+                print("🌤️ [OutfitRepo] First outfit has \(first.wardrobeItemIds.count) items")
+            }
+            preGeneratedOutfits = preGen.outfits
+            preGeneratedWeather = preGen.weather
+            preGenCacheTimestamp = Date()
+            outfitSource = "pre_generated"
+            print("🌤️ [OutfitRepo] ✅ Stored \(preGeneratedOutfits.count) pre-generated outfits")
+        } else {
+            print("🌤️ [OutfitRepo] No pre-generated outfits available")
+        }
     }
 
-    // MARK: - Generate Outfits
+    /// Check if pre-generated outfits are ready to show
+    var hasPreGeneratedReady: Bool {
+        !preGeneratedOutfits.isEmpty && Calendar.current.isDateInToday(preGenCacheTimestamp ?? .distantPast)
+    }
 
-    func generateOutfits(preferences: StylePreferences? = nil) async {
-        guard SupabaseManager.shared.currentUserId != nil else { return }
+    /// View pre-generated outfits (called from Home screen - FREE)
+    func viewPreGeneratedOutfits() {
+        print("🌤️ [OutfitRepo] Viewing pre-generated outfits (FREE)")
+        // Clear session so todaysOutfits returns preGeneratedOutfits
+        sessionOutfits = []
+        sessionWeather = nil
+        outfitSource = "pre_generated"
+    }
 
-        // Check if user has enough items
+    // MARK: - Fresh Generation (Uses Credits)
+
+    /// Generate fresh outfits - ALWAYS hits the API, uses credits
+    func generateFreshOutfits(preferences: StylePreferences? = nil) async {
+        print("🌤️ [OutfitRepo] Generating FRESH outfits (uses credit)...")
+
+        guard SupabaseManager.shared.currentUserId != nil else {
+            print("🌤️ [OutfitRepo] No user ID, aborting")
+            return
+        }
+
         guard wardrobeService.hasEnoughForOutfits else {
+            print("🌤️ [OutfitRepo] Not enough items for outfits")
             error = OutfitError.notEnoughItems
             return
         }
@@ -55,8 +109,8 @@ final class OutfitRepository {
         defer { isGenerating = false }
 
         do {
-            // Get location for weather (nil if permission denied)
             let location = await locationService.getCurrentLocation()
+            print("🌤️ [OutfitRepo] Location: lat=\(location?.latitude ?? 0), lng=\(location?.longitude ?? 0)")
 
             let result = try await api.generateOutfits(
                 occasion: preferences?.occasion,
@@ -66,16 +120,71 @@ final class OutfitRepository {
                 longitude: location?.longitude
             )
 
-            todaysOutfits = result.outfits
-            currentWeather = result.weather
-            cacheTimestamp = Date()
+            print("🌤️ [OutfitRepo] ✅ Generated \(result.outfits.count) fresh outfits")
+            if let weather = result.weather {
+                print("🌤️ [OutfitRepo] Weather: \(Int(weather.tempFahrenheit))°F, \(weather.condition)")
+            }
+
+            sessionOutfits = result.outfits
+            sessionWeather = result.weather
+            outfitSource = "fresh"
+
+            if let first = sessionOutfits.first {
+                print("🌤️ [OutfitRepo] First outfit: \(first.headline ?? "no headline"), \(first.wardrobeItemIds.count) items")
+            }
 
             HapticManager.shared.success()
 
+            // Award gamification XP and update challenge progress (+1 XP per outfit generated)
+            let xpForGeneration = result.outfits.count
+            GamificationService.shared.awardXP(xpForGeneration, reason: .outfitGenerated)
+            GamificationService.shared.updateChallengeProgress(for: .generateOutfit)
+
+            // Save location for future pre-generation
+            if let loc = location {
+                Task {
+                    await api.saveLocationForPreGeneration(latitude: loc.latitude, longitude: loc.longitude)
+                }
+            }
+
         } catch {
+            print("🌤️ [OutfitRepo] ❌ Generate error: \(error)")
             self.error = error
-            print("Generate outfits error: \(error)")
         }
+    }
+
+    // MARK: - Legacy Methods
+
+    /// Legacy method - now always generates fresh (for backward compatibility)
+    func generateOutfits(preferences: StylePreferences? = nil) async {
+        await generateFreshOutfits(preferences: preferences)
+    }
+
+    /// Legacy method - generates in background
+    func generateOutfitsInBackground(completion: @escaping () -> Void) {
+        Task {
+            await generateFreshOutfits()
+            await MainActor.run {
+                completion()
+            }
+        }
+    }
+
+    /// Legacy check - returns true if any outfits ready
+    var hasOutfitsReady: Bool {
+        !todaysOutfits.isEmpty
+    }
+
+    // MARK: - Get Today's Outfits (for Home screen)
+
+    func getTodaysOutfits(forceRefresh: Bool = false) async {
+        guard SupabaseManager.shared.currentUserId != nil else { return }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        // Load pre-generated for home screen
+        await loadPreGeneratedIfAvailable()
     }
 
     // MARK: - Save Outfit
@@ -86,6 +195,10 @@ final class OutfitRepository {
         try await api.saveOutfit(outfit: outfit)
 
         HapticManager.shared.likeOutfit()
+
+        // Award gamification XP and update challenge progress
+        GamificationService.shared.awardXP(3, reason: .outfitSaved)
+        GamificationService.shared.updateChallengeProgress(for: .saveOutfit)
     }
 
     // MARK: - Mark Outfit as Worn
@@ -102,6 +215,16 @@ final class OutfitRepository {
         }
 
         HapticManager.shared.success()
+
+        // Award gamification XP and update challenge progress
+        // Base: 10 XP for wearing, +15 XP bonus if verified with photo
+        let baseXP = 10
+        let verifyBonus = photoUrl != nil ? 15 : 0
+        GamificationService.shared.awardXP(baseXP, reason: .outfitWorn)
+        if verifyBonus > 0 {
+            GamificationService.shared.awardXP(verifyBonus, reason: .verifiedWear, showToast: false)
+        }
+        GamificationService.shared.updateChallengeProgress(for: .wearOutfit)
 
         // Handle streak update notification if needed
         if let streakUpdate = response.streakUpdate, streakUpdate.streakIncreased {
@@ -123,17 +246,6 @@ final class OutfitRepository {
 
     func getOutfitHistory() async throws -> [OutfitHistory] {
         try await api.getOutfitHistory()
-    }
-
-    // MARK: - Generate Outfits in Background
-
-    func generateOutfitsInBackground(completion: @escaping () -> Void) {
-        Task {
-            await generateOutfits()
-            await MainActor.run {
-                completion()
-            }
-        }
     }
 
     // MARK: - Regenerate with Feedback
@@ -165,12 +277,19 @@ final class OutfitRepository {
         }
     }
 
-    // MARK: - Clear Cache
+    // MARK: - Clear
+
+    func clearSessionOutfits() {
+        sessionOutfits = []
+        sessionWeather = nil
+    }
 
     func clearCache() {
-        todaysOutfits = []
-        currentWeather = nil
-        cacheTimestamp = nil
+        preGeneratedOutfits = []
+        preGeneratedWeather = nil
+        preGenCacheTimestamp = nil
+        sessionOutfits = []
+        sessionWeather = nil
     }
 }
 
@@ -182,8 +301,10 @@ enum OutfitError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notEnoughItems: return "Add at least 1 top, 1 bottom, and 1 pair of shoes"
-        case .generationFailed: return "Failed to generate outfits"
+        case .notEnoughItems:
+            return "Add at least 1 top, 1 bottom, and 1 pair of shoes to get outfit suggestions."
+        case .generationFailed:
+            return "Couldn't create outfits right now. Try again in a moment."
         }
     }
 }

@@ -4,143 +4,119 @@ struct HomeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
     @State private var wardrobeService = WardrobeService.shared
     @State private var profileService = ProfileService.shared
-    @State private var streakService = StreakService.shared
+    @State private var gamificationService = GamificationService.shared
     @State private var outfitRepo = OutfitRepository.shared
+    @State private var locationService = LocationService.shared
+    @State private var tierManager = TierManager.shared
     @State private var insights: WardrobeInsights?
     @State private var isLoadingInsights = true
+    @State private var headerAppeared = false
+    @State private var showChallengesExpanded = false
 
     var body: some View {
         ScrollView {
-            VStack(spacing: AppSpacing.xl) {
-                // Header
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(timeOfDayGreeting)
-                            .font(AppTypography.displayMedium)
+            VStack(spacing: AppSpacing.lg) {
+                // Editorial Header with Streak Flame
+                headerSection
 
-                        HStack(spacing: 6) {
-                            Image(systemName: "sun.max")
-                                .font(.system(size: 14, weight: .medium))
-                            Text("72° Sunny")
-                            Text("·")
-                            Text("Chicago, IL")
+                // Subscription Status Banners
+                subscriptionBanners
+
+                // Streak At Risk Warning (when applicable)
+                if gamificationService.streakAtRisk && gamificationService.currentStreak > 0 {
+                    StreakAtRiskBanner(
+                        onGenerateOutfit: {
+                            coordinator.switchTab(to: .styleMe)
+                        },
+                        onAddItem: {
+                            coordinator.present(.addItem)
                         }
-                        .font(AppTypography.bodySmall)
-                        .foregroundColor(AppColors.textSecondary)
-                    }
-
-                    Spacer()
-
-                    Button {
-                        // Notifications
-                    } label: {
-                        Image(systemName: "bell")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(AppColors.textPrimary)
-                    }
+                    )
+                    .padding(.horizontal, AppSpacing.pageMargin)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    ))
                 }
 
-                // Streak progress bar
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("STYLE STREAK")
-                            .font(AppTypography.kicker)
-                            .foregroundColor(AppColors.textMuted)
-                            .tracking(1)
-
-                        Spacer()
-
-                        Text("\(streakService.currentStreak) days")
-                            .font(AppTypography.labelMedium)
-                            .foregroundColor(AppColors.textPrimary)
-                    }
-
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Rectangle()
-                                .fill(AppColors.filterTagBg)
-                                .frame(height: 4)
-                                .cornerRadius(2)
-
-                            Rectangle()
-                                .fill(AppColors.black)
-                                .frame(width: geo.size.width * streakProgress, height: 4)
-                                .cornerRadius(2)
+                // Daily Challenges Card
+                if gamificationService.isLoading && gamificationService.dailyChallenges.isEmpty {
+                    DailyChallengesCardSkeleton()
+                        .padding(.horizontal, AppSpacing.pageMargin)
+                } else {
+                    DailyChallengesCard(
+                        onChallengeTapped: { challenge in
+                            handleChallengeTap(challenge)
                         }
-                    }
-                    .frame(height: 4)
-
-                    Text("Keep it going! Style an outfit today.")
-                        .font(AppTypography.bodySmall)
-                        .foregroundColor(AppColors.textMuted)
+                    )
+                    .padding(.horizontal, AppSpacing.pageMargin)
                 }
-                .padding(AppSpacing.md)
-                .background(AppColors.backgroundSecondary)
-                .cornerRadius(AppSpacing.radiusMd)
 
-                // Today's outfit
-                VStack(alignment: .leading, spacing: AppSpacing.md) {
-                    Text("TODAY'S OUTFIT")
-                        .font(AppTypography.kicker)
-                        .foregroundColor(AppColors.textMuted)
-                        .tracking(1)
+                // Streak Calendar (7-day week view)
+                if gamificationService.isLoading && gamificationService.activityHistory.isEmpty {
+                    StreakCalendarSkeleton()
+                        .padding(.horizontal, AppSpacing.pageMargin)
+                } else {
+                    StreakCalendar()
+                        .padding(.horizontal, AppSpacing.pageMargin)
+                }
 
-                    if let outfit = outfitRepo.todaysOutfits.first {
-                        TodaysOutfitCard(outfit: outfit)
-                    } else if outfitRepo.isLoading {
-                        SkeletonCard()
-                            .frame(height: 200)
-                    } else {
-                        VStack(spacing: AppSpacing.md) {
-                            Image(systemName: "square.stack")
-                                .font(.system(size: 40, weight: .light))
-                                .foregroundColor(AppColors.textMuted)
+                // HERO: Daily Outfit (THE MAIN EVENT)
+                dailyOutfitHero
 
-                            Text("Ready to style")
-                                .font(AppTypography.titleMedium)
+                // Secondary action when pre-generated is ready
+                if outfitRepo.hasPreGeneratedReady {
+                    VStack(spacing: AppSpacing.sm) {
+                        Text("Want something different?")
+                            .font(AppTypography.bodySmall)
+                            .foregroundColor(AppColors.textSecondary)
 
-                            Text("Tap Style Me to get your outfit for today")
-                                .font(AppTypography.bodySmall)
+                        Button {
+                            coordinator.switchTab(to: .styleMe)
+                        } label: {
+                            Text("Generate New Looks")
+                                .font(AppTypography.labelMedium)
                                 .foregroundColor(AppColors.textSecondary)
-                                .multilineTextAlignment(.center)
-
-                            Button {
-                                coordinator.switchTab(to: .styleMe)
-                            } label: {
-                                Text("Style Me")
-                                    .font(AppTypography.labelLarge)
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 50)
-                                    .background(AppColors.black)
-                                    .cornerRadius(AppSpacing.radiusMd)
-                            }
-                            .buttonStyle(ScaleButtonStyle())
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(AppColors.textMuted.opacity(0.3), lineWidth: 1)
+                                )
                         }
-                        .padding(AppSpacing.xl)
-                        .frame(maxWidth: .infinity)
-                        .background(AppColors.backgroundSecondary)
-                        .cornerRadius(AppSpacing.radiusLg)
                     }
+                    .padding(.horizontal, AppSpacing.pageMargin)
                 }
 
-                // Quick actions
-                VStack(alignment: .leading, spacing: AppSpacing.md) {
-                    Text("QUICK ACTIONS")
-                        .font(AppTypography.kicker)
-                        .foregroundColor(AppColors.textMuted)
-                        .tracking(1)
-
-                    HStack(spacing: AppSpacing.md) {
-                        QuickActionButton(icon: "plus", label: "Add Item") {
+                // Quick Actions - Editorial Style
+                VStack(spacing: AppSpacing.sm) {
+                    HStack(spacing: AppSpacing.sm) {
+                        QuickActionCard(
+                            icon: "plus",
+                            title: "Add",
+                            subtitle: "New piece"
+                        ) {
                             coordinator.present(.addItem)
                         }
 
-                        QuickActionButton(icon: "square.stack", label: "Style Me") {
+                        QuickActionCard(
+                            icon: "rectangle.stack",
+                            title: "Style",
+                            subtitle: "Get looks"
+                        ) {
                             coordinator.switchTab(to: .styleMe)
+                        }
+
+                        QuickActionCard(
+                            icon: "square.grid.2x2",
+                            title: "Browse",
+                            subtitle: "Wardrobe"
+                        ) {
+                            coordinator.switchTab(to: .wardrobe)
                         }
                     }
                 }
+                .padding(.horizontal, AppSpacing.pageMargin)
 
                 // Wardrobe Insights
                 WardrobeInsightsSection(
@@ -150,39 +126,266 @@ struct HomeScreen: View {
                     onAddItems: { coordinator.present(.addItem) },
                     onItemTapped: { _ in coordinator.switchTab(to: .wardrobe) }
                 )
+                .padding(.horizontal, AppSpacing.pageMargin)
             }
-            .padding(AppSpacing.pageMargin)
+            .padding(.vertical, AppSpacing.pageMargin)
         }
         .background(AppColors.background)
         .navigationBarHidden(true)
         .refreshable {
             HapticManager.shared.light()
-            await outfitRepo.getTodaysOutfits(forceRefresh: true)
+            await refreshAll()
         }
         .task {
-            isLoadingInsights = true
-            insights = try? await StyleumAPI.shared.fetchWardrobeInsights()
-            isLoadingInsights = false
-            await wardrobeService.fetchItems()
-            await profileService.fetchProfile()
-            await outfitRepo.getTodaysOutfits()
+            await tierManager.refresh()
+            await loadInitialData()
+        }
+        .animation(.easeInOut(duration: 0.3), value: gamificationService.streakAtRisk)
+    }
+
+    // MARK: - Header Section
+
+    @ViewBuilder
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Clean greeting - no flame
+            Text(personalizedGreeting)
+                .font(.system(size: 32, weight: .bold, design: .serif))
+                .foregroundColor(AppColors.textPrimary)
+                .opacity(headerAppeared ? 1 : 0)
+                .offset(y: headerAppeared ? 0 : 10)
+
+            // Weather and location subheader
+            HStack(spacing: 6) {
+                Image(systemName: weatherIconName)
+                    .font(.system(size: 13, weight: .medium))
+                Text(weatherText)
+                if !locationService.locationName.isEmpty {
+                    Text("·")
+                    Text(locationService.locationName)
+                }
+            }
+            .font(.system(size: 14))
+            .foregroundColor(AppColors.textSecondary)
+            .opacity(headerAppeared ? 1 : 0)
+            .offset(y: headerAppeared ? 0 : 8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, AppSpacing.pageMargin)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.5).delay(0.1)) {
+                headerAppeared = true
+            }
         }
     }
 
-    private var timeOfDayGreeting: String {
+    // MARK: - Subscription Status Banners
+
+    @ViewBuilder
+    private var subscriptionBanners: some View {
+        VStack(spacing: 8) {
+            // Priority order: Billing > Grace Period > Cancellation > Over Limit
+            if tierManager.hasBillingIssue {
+                BillingIssueBanner {
+                    openSubscriptionManagement()
+                }
+            } else if tierManager.inGracePeriod {
+                GracePeriodBanner(daysRemaining: tierManager.gracePeriodDaysRemaining) {
+                    openSubscriptionManagement()
+                }
+            } else if tierManager.isCancelled, let expiry = tierManager.subscriptionExpiryDate {
+                CancellationBanner(expiryDate: expiry) {
+                    coordinator.navigate(to: .subscription)
+                }
+            } else if tierManager.isOverLimit, let info = tierManager.tierInfo {
+                OverLimitBanner(
+                    itemCount: info.usage.wardrobeItems,
+                    limit: info.limits.maxWardrobeItems
+                ) {
+                    coordinator.navigate(to: .subscription)
+                }
+            }
+        }
+        .padding(.horizontal, AppSpacing.pageMargin)
+    }
+
+    private func openSubscriptionManagement() {
+        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    // MARK: - Daily Outfit Hero (THE MAIN EVENT)
+
+    @ViewBuilder
+    private var dailyOutfitHero: some View {
+        if outfitRepo.hasPreGeneratedReady {
+            DailyOutfitHeroCard(
+                outfits: outfitRepo.preGeneratedOutfits,
+                wardrobeItems: wardrobeService.items,
+                onViewTapped: {
+                    HapticManager.shared.medium()
+                    outfitRepo.viewPreGeneratedOutfits()
+                    coordinator.presentFullScreen(.outfitResults)
+                }
+            )
+        } else if outfitRepo.isLoading {
+            SkeletonCard()
+                .frame(height: 280)
+                .padding(.horizontal, AppSpacing.pageMargin)
+        } else {
+            // Empty state - editorial with subtle animation
+            EmptyOutfitHero(
+                weatherCopy: emptyStateWeatherCopy,
+                onStyleMe: {
+                    coordinator.switchTab(to: .styleMe)
+                }
+            )
+            .padding(.horizontal, AppSpacing.pageMargin)
+        }
+    }
+
+    // MARK: - Data Loading
+
+    private func loadInitialData() async {
+        isLoadingInsights = true
+
+        // Load all data in parallel
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                insights = try? await StyleumAPI.shared.fetchWardrobeInsights()
+            }
+            group.addTask {
+                await wardrobeService.fetchItems()
+            }
+            group.addTask {
+                await profileService.fetchProfile()
+            }
+            group.addTask {
+                await outfitRepo.getTodaysOutfits()
+            }
+            group.addTask {
+                await gamificationService.loadGamificationData()
+            }
+        }
+
+        isLoadingInsights = false
+    }
+
+    private func refreshAll() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await outfitRepo.getTodaysOutfits(forceRefresh: true)
+            }
+            group.addTask {
+                await gamificationService.loadGamificationData()
+            }
+        }
+    }
+
+    // MARK: - Challenge Handling
+
+    private func handleChallengeTap(_ challenge: DailyChallenge) {
+        // Navigate based on challenge type
+        guard let type = challenge.type else {
+            // Default to StyleMe for unknown challenge types
+            coordinator.switchTab(to: .styleMe)
+            return
+        }
+
+        switch type {
+        case .wearOutfit:
+            if outfitRepo.hasPreGeneratedReady {
+                coordinator.presentFullScreen(.outfitResults)
+            } else {
+                coordinator.switchTab(to: .styleMe)
+            }
+        case .addItem:
+            coordinator.present(.addItem)
+        case .generateOutfit:
+            coordinator.switchTab(to: .styleMe)
+        case .saveOutfit:
+            coordinator.switchTab(to: .styleMe)
+        case .viewWardrobe:
+            coordinator.switchTab(to: .wardrobe)
+        }
+    }
+
+    // MARK: - Personalized Greeting
+
+    private var personalizedGreeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
+        let timeGreeting: String
         switch hour {
-        case 0..<12: return "Morning."
-        case 12..<17: return "Afternoon."
-        default: return "Evening."
+        case 0..<12: timeGreeting = "Morning"
+        case 12..<17: timeGreeting = "Afternoon"
+        default: timeGreeting = "Evening"
         }
+
+        if let firstName = profileService.currentProfile?.firstName, !firstName.isEmpty {
+            return "\(timeGreeting), \(firstName)."
+        }
+        return "\(timeGreeting)."
     }
 
-    private var streakProgress: CGFloat {
-        let streak = streakService.currentStreak
-        return min(CGFloat(streak) / 7.0, 1.0)
+    // MARK: - Weather-Aware Empty State
+
+    private var emptyStateWeatherCopy: String {
+        guard let weather = outfitRepo.preGeneratedWeather ?? outfitRepo.currentWeather else {
+            return "Let's find your look for today."
+        }
+
+        let temp = weather.tempFahrenheit
+        let condition = weather.condition.lowercased()
+
+        if condition.contains("rain") {
+            return "Rainy day calls for a cozy look."
+        } else if condition.contains("snow") {
+            return "Time to bundle up in style."
+        } else if condition.contains("clear") || condition.contains("sunny") {
+            if temp > 80 {
+                return "Hot and sunny—dress light, look sharp."
+            } else if temp > 60 {
+                return "Perfect weather for a fresh outfit."
+            } else {
+                return "Clear skies, cool air—layer up."
+            }
+        } else if condition.contains("cloud") {
+            return "Cloudy vibes. Perfect for layering."
+        } else if temp > 85 {
+            return "It's warm out. Keep it breezy."
+        } else if temp < 40 {
+            return "Bundle up—it's chilly out there."
+        }
+
+        return "Let's find your perfect look."
     }
 
+    /// Weather text - tries preGeneratedWeather first, then currentWeather
+    private var weatherText: String {
+        if let weather = outfitRepo.preGeneratedWeather ?? outfitRepo.currentWeather {
+            return "\(Int(weather.tempFahrenheit))° \(weather.condition.lowercased())"
+        }
+        return "--°"
+    }
+
+    /// Weather icon - matches the condition
+    private var weatherIconName: String {
+        guard let weather = outfitRepo.preGeneratedWeather ?? outfitRepo.currentWeather else {
+            return "cloud"
+        }
+        let condition = weather.condition.lowercased()
+        if condition.contains("clear") || condition.contains("sunny") {
+            return "sun.max.fill"
+        } else if condition.contains("cloud") {
+            return "cloud.fill"
+        } else if condition.contains("rain") {
+            return "cloud.rain.fill"
+        } else if condition.contains("snow") {
+            return "cloud.snow.fill"
+        }
+        return "cloud"
+    }
 }
 
 // MARK: - Wardrobe Insights Section
@@ -195,9 +398,9 @@ struct WardrobeInsightsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
-            Text("WARDROBE INSIGHTS")
+            Text("INSIGHTS")
                 .font(AppTypography.kicker)
-                .foregroundColor(AppColors.textMuted)
+                .foregroundColor(AppColors.brownLight)
                 .tracking(1)
 
             if isLoading {
@@ -273,9 +476,12 @@ struct ItemCountCard: View {
             Text("\(categoryCount) categories")
                 .font(AppTypography.bodySmall)
                 .foregroundColor(AppColors.textMuted)
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(AppSpacing.md)
+        .frame(height: 90)
+        .padding(.horizontal, AppSpacing.md)
+        .padding(.vertical, AppSpacing.sm)
         .background(AppColors.backgroundSecondary)
         .cornerRadius(AppSpacing.radiusMd)
     }
@@ -295,18 +501,21 @@ struct MostWornCard: View {
                         } placeholder: {
                             Rectangle().fill(AppColors.filterTagBg)
                         }
-                        .frame(width: 40, height: 40)
-                        .cornerRadius(AppSpacing.radiusSm)
+                        .frame(width: 36, height: 36)
+                        .cornerRadius(6)
+                        .clipped()
 
-                        Text(item.name)
-                            .font(AppTypography.bodySmall)
-                            .lineLimit(1)
-                            .foregroundColor(AppColors.textPrimary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Most Worn")
+                                .font(AppTypography.labelSmall)
+                                .foregroundColor(AppColors.textMuted)
+                            Text(item.name)
+                                .font(AppTypography.labelMedium)
+                                .lineLimit(1)
+                                .foregroundColor(AppColors.textPrimary)
+                        }
                     }
-                    Spacer()
-                    Text("Most Worn")
-                        .font(AppTypography.labelMedium)
-                        .foregroundColor(AppColors.textPrimary)
+                    Spacer(minLength: 0)
                     Text("Worn \(item.wearCount)x")
                         .font(AppTypography.bodySmall)
                         .foregroundColor(AppColors.textMuted)
@@ -319,10 +528,13 @@ struct MostWornCard: View {
                     Text("Wear an outfit to track")
                         .font(AppTypography.bodySmall)
                         .foregroundColor(AppColors.textMuted)
+                    Spacer(minLength: 0)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(AppSpacing.md)
+            .frame(height: 90)
+            .padding(.horizontal, AppSpacing.md)
+            .padding(.vertical, AppSpacing.sm)
             .background(AppColors.backgroundSecondary)
             .cornerRadius(AppSpacing.radiusMd)
         }
@@ -331,27 +543,106 @@ struct MostWornCard: View {
     }
 }
 
-// MARK: - Quick Action Button
-struct QuickActionButton: View {
+// MARK: - Quick Action Card (Editorial Style)
+struct QuickActionCard: View {
     let icon: String
-    let label: String
+    let title: String
+    let subtitle: String
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
+        Button(action: {
+            HapticManager.shared.light()
+            action()
+        }) {
+            VStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                Text(label)
-                    .font(AppTypography.labelMedium)
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundColor(AppColors.textPrimary)
+
+                VStack(spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppColors.textPrimary)
+
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppColors.textMuted)
+                }
             }
-            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(AppColors.black)
+            .frame(height: 90)
+            .background(AppColors.backgroundSecondary)
             .cornerRadius(AppSpacing.radiusMd)
         }
         .buttonStyle(ScaleButtonStyle())
+    }
+}
+
+// MARK: - Empty Outfit Hero (Animated)
+struct EmptyOutfitHero: View {
+    let weatherCopy: String
+    let onStyleMe: () -> Void
+
+    @State private var hangerOffset: CGFloat = 0
+    @State private var contentOpacity: Double = 0
+
+    var body: some View {
+        VStack(spacing: AppSpacing.lg) {
+            Spacer()
+                .frame(height: 32)
+
+            // Animated hanger icon
+            Image(systemName: "hanger")
+                .font(.system(size: 52, weight: .ultraLight))
+                .foregroundColor(AppColors.textMuted)
+                .offset(y: hangerOffset)
+                .onAppear {
+                    withAnimation(
+                        .easeInOut(duration: 2.5)
+                        .repeatForever(autoreverses: true)
+                    ) {
+                        hangerOffset = -6
+                    }
+                }
+
+            VStack(spacing: 10) {
+                Text("TODAY'S LOOK")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(2)
+                    .foregroundColor(AppColors.brownLight)
+
+                Text(weatherCopy)
+                    .font(.system(size: 22, weight: .medium, design: .serif))
+                    .foregroundColor(AppColors.textPrimary)
+                    .multilineTextAlignment(.center)
+            }
+            .opacity(contentOpacity)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
+                    contentOpacity = 1
+                }
+            }
+
+            Button(action: onStyleMe) {
+                Text("Style Me")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(AppColors.black)
+                    .cornerRadius(AppSpacing.radiusMd)
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .padding(.horizontal, AppSpacing.lg)
+            .opacity(contentOpacity)
+
+            Spacer()
+                .frame(height: 32)
+        }
+        .frame(maxWidth: .infinity)
+        .background(AppColors.backgroundSecondary)
+        .cornerRadius(AppSpacing.radiusLg)
     }
 }
 
@@ -401,6 +692,105 @@ struct TodaysOutfitCard: View {
         .padding(AppSpacing.lg)
         .background(AppColors.backgroundSecondary)
         .cornerRadius(AppSpacing.radiusLg)
+    }
+}
+
+// MARK: - Daily Outfit Hero Card (Editorial Design)
+struct DailyOutfitHeroCard: View {
+    let outfits: [ScoredOutfit]
+    let wardrobeItems: [WardrobeItem]
+    let onViewTapped: () -> Void
+
+    private var firstOutfit: ScoredOutfit? { outfits.first }
+
+    /// Get hero image URL - try outfit.items first, fallback to wardrobeItems
+    private var heroImageUrl: String? {
+        // First try: use outfit.items if available
+        if let items = firstOutfit?.items, let firstItem = items.first {
+            return firstItem.imageUrl
+        }
+        // Fallback: find first wardrobe item by ID
+        if let firstItemId = firstOutfit?.wardrobeItemIds.first,
+           let wardrobeItem = wardrobeItems.first(where: { $0.id == firstItemId }) {
+            return wardrobeItem.displayPhotoUrl
+        }
+        return nil
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Hero image with gradient overlay
+            ZStack(alignment: .bottomLeading) {
+                AsyncImage(url: URL(string: heroImageUrl ?? "")) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure, .empty:
+                        Rectangle()
+                            .fill(AppColors.backgroundSecondary)
+                            .overlay(
+                                Image(systemName: "hanger")
+                                    .font(.system(size: 40, weight: .ultraLight))
+                                    .foregroundColor(AppColors.textMuted)
+                            )
+                    @unknown default:
+                        Rectangle()
+                            .fill(AppColors.backgroundSecondary)
+                    }
+                }
+                .frame(height: 280)
+                .clipped()
+
+                // Gradient overlay
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.75)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                // Text content overlay
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("TODAY'S LOOK")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(2)
+                        .foregroundColor(.white.opacity(0.8))
+
+                    Text(firstOutfit?.headline ?? "Today's Look")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+
+                    Text("\(outfits.count) look\(outfits.count == 1 ? "" : "s") curated for you")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .padding(20)
+            }
+
+            // View button bar
+            Button(action: onViewTapped) {
+                HStack {
+                    Text("View Your Looks")
+                        .font(.system(size: 16, weight: .semibold))
+
+                    Spacer()
+
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(AppColors.textPrimary)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(AppColors.background)
+            }
+            .buttonStyle(ScaleButtonStyle())
+        }
+        .background(AppColors.backgroundSecondary)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
+        .padding(.horizontal, AppSpacing.pageMargin)
     }
 }
 

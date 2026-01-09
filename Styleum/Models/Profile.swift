@@ -13,6 +13,11 @@ struct Profile: Codable, Identifiable, Equatable {
     var updatedAt: Date?
     var isPro: Bool?
 
+    // Notification preferences
+    var pushEnabled: Bool?
+    var morningNotificationTime: String?
+    var timezone: String?
+
     var displayName: String {
         firstName ?? "there"
     }
@@ -29,6 +34,9 @@ struct Profile: Codable, Identifiable, Equatable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case isPro = "is_pro"
+        case pushEnabled = "push_enabled"
+        case morningNotificationTime = "morning_notification_time"
+        case timezone
     }
 
     init(from decoder: Decoder) throws {
@@ -44,5 +52,8 @@ struct Profile: Codable, Identifiable, Equatable {
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
         isPro = try container.decodeIfPresent(Bool.self, forKey: .isPro)
+        pushEnabled = try container.decodeIfPresent(Bool.self, forKey: .pushEnabled)
+        morningNotificationTime = try container.decodeIfPresent(String.self, forKey: .morningNotificationTime)
+        timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
     }
 }

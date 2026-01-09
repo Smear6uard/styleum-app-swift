@@ -160,6 +160,67 @@ final class AuthService {
         #endif
     }
 
+    // MARK: - Email OTP Sign In
+
+    /// Sends a one-time password to the specified email address
+    func sendOTP(email: String) async throws {
+        print("🔐 [AUTH] ========== SEND OTP START ==========")
+        print("🔐 [AUTH] Email: \(email)")
+
+        isLoading = true
+        error = nil
+
+        defer {
+            isLoading = false
+            print("🔐 [AUTH] Set isLoading=false (defer)")
+        }
+
+        do {
+            try await supabase.auth.signInWithOTP(email: email)
+            print("🔐 [AUTH] ✅ OTP sent successfully to \(email)")
+            HapticManager.shared.light()
+        } catch {
+            print("🔐 [AUTH] ❌ Failed to send OTP: \(error)")
+            self.error = error
+            throw error
+        }
+        print("🔐 [AUTH] ========== SEND OTP END ==========")
+    }
+
+    /// Verifies the OTP code and signs in the user
+    func verifyOTP(email: String, token: String) async throws {
+        print("🔐 [AUTH] ========== VERIFY OTP START ==========")
+        print("🔐 [AUTH] Email: \(email), Token length: \(token.count)")
+
+        isLoading = true
+        error = nil
+
+        defer {
+            isLoading = false
+            print("🔐 [AUTH] Set isLoading=false (defer)")
+        }
+
+        do {
+            let session = try await supabase.auth.verifyOTP(
+                email: email,
+                token: token,
+                type: .email
+            )
+            print("🔐 [AUTH] ✅ OTP verified successfully")
+            print("🔐 [AUTH] User ID: \(session.user.id)")
+            print("🔐 [AUTH] User email: \(session.user.email ?? "no email")")
+
+            currentUser = session.user
+            print("🔐 [AUTH] ✅ currentUser set, isAuthenticated: \(isAuthenticated)")
+            HapticManager.shared.success()
+        } catch {
+            print("🔐 [AUTH] ❌ Failed to verify OTP: \(error)")
+            self.error = error
+            throw error
+        }
+        print("🔐 [AUTH] ========== VERIFY OTP END ==========")
+    }
+
     // MARK: - Sign Out
     func signOut() async throws {
         print("🔐 [AUTH] ========== SIGN OUT START ==========")
@@ -194,9 +255,12 @@ enum AuthError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noViewController: return "Unable to present sign-in"
-        case .noIdToken: return "Failed to get authentication token"
-        case .sessionExpired: return "Session expired. Please sign in again."
+        case .noViewController:
+            return "Something went wrong. Please try signing in again."
+        case .noIdToken:
+            return "We couldn't complete sign-in. Please try again."
+        case .sessionExpired:
+            return "Your session has expired. Please sign in again."
         }
     }
 }

@@ -74,7 +74,7 @@ extension AppCoordinator.Tab {
         switch self {
         case .home: return "house"
         case .wardrobe: return "square.grid.2x2"
-        case .styleMe: return "square.stack"
+        case .styleMe: return "rectangle.stack"
         case .achievements: return "trophy"
         case .profile: return "person"
         }

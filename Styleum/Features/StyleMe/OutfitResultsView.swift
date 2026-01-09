@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct OutfitResultsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -6,6 +7,7 @@ struct OutfitResultsView: View {
     @State private var wardrobeService = WardrobeService.shared
     @State private var outfitRepo = OutfitRepository.shared
     @State private var shareService = ShareService.shared
+    @State private var tierManager = TierManager.shared
 
     @State private var currentIndex = 0
     @State private var isSaved = false
@@ -18,6 +20,7 @@ struct OutfitResultsView: View {
     // Sheet states
     @State private var showVerifySheet = false
     @State private var showRegenerateSheet = false
+    @State private var showProPaywall = false
 
     // XP Toast
     @State private var showXPToast = false
@@ -34,6 +37,15 @@ struct OutfitResultsView: View {
         return outfits[currentIndex]
     }
 
+    // Tier-aware outfit limits
+    private var unlockedOutfitCount: Int {
+        tierManager.isPro ? outfits.count : min(outfits.count, tierManager.tierInfo?.limits.dailyOutfits ?? 2)
+    }
+
+    private var isCurrentOutfitLocked: Bool {
+        !tierManager.isPro && currentIndex >= unlockedOutfitCount
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
@@ -44,8 +56,47 @@ struct OutfitResultsView: View {
                     // MARK: - Hero Image (horizontal paging)
                     TabView(selection: $currentIndex) {
                         ForEach(Array(outfits.enumerated()), id: \.offset) { index, outfit in
-                            outfitHeroImage(outfit, geometry: geometry)
-                                .tag(index)
+                            // Show locked card for outfits beyond tier limit
+                            if !tierManager.isPro && index >= unlockedOutfitCount {
+                                lockedOutfitView(outfit, geometry: geometry)
+                                    .tag(index)
+                            } else {
+                                outfitHeroImage(outfit, geometry: geometry)
+                                    .tag(index)
+                                    .contextMenu {
+                                        Button {
+                                            shareOutfit(outfit)
+                                        } label: {
+                                            Label("Share", systemImage: "square.and.arrow.up")
+                                        }
+
+                                        Button {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                isSaved.toggle()
+                                            }
+                                            if isSaved {
+                                                GamificationService.shared.awardXP(2, reason: .outfitLiked)
+                                            }
+                                            HapticManager.shared.medium()
+                                        } label: {
+                                            Label(isSaved ? "Unlike" : "Like", systemImage: isSaved ? "heart.slash" : "heart")
+                                        }
+
+                                        Button {
+                                            wearOutfit()
+                                        } label: {
+                                            Label("Wear This", systemImage: "checkmark.circle")
+                                        }
+
+                                        Divider()
+
+                                        Button {
+                                            showRegenerateSheet = true
+                                        } label: {
+                                            Label("Regenerate", systemImage: "arrow.clockwise")
+                                        }
+                                    }
+                            }
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
@@ -88,7 +139,7 @@ struct OutfitResultsView: View {
             if let outfit = currentOutfit {
                 RegenerateSheet(
                     currentOutfit: outfit,
-                    isPro: false,
+                    isPro: tierManager.isPro,
                     onRegenerate: { feedback in
                         regenerateOutfit(with: feedback)
                     },
@@ -98,9 +149,13 @@ struct OutfitResultsView: View {
                 )
             }
         }
+        .sheet(isPresented: $showProPaywall) {
+            ProUpgradeView(trigger: .lockedOutfits)
+        }
         .onChange(of: currentIndex) { _, _ in
             isSaved = false
             drawerExpanded = false
+            HapticManager.shared.selection()
         }
     }
 
@@ -134,14 +189,9 @@ struct OutfitResultsView: View {
     }
 
     private var imagePlaceholder: some View {
-        Rectangle()
-            .fill(Color(hex: "F0F0F0"))
+        CardImageSkeleton()
             .frame(height: 300)
-            .overlay(
-                Image(systemName: "hanger")
-                    .font(.system(size: 48, weight: .ultraLight))
-                    .foregroundColor(AppColors.textMuted)
-            )
+            .cornerRadius(AppSpacing.radiusMd)
     }
 
     private func heroImageUrl(for outfit: ScoredOutfit) -> String? {
@@ -153,6 +203,27 @@ struct OutfitResultsView: View {
             return wardrobeItem.displayPhotoUrl
         }
         return nil
+    }
+
+    // MARK: - Locked Outfit View
+
+    private func lockedOutfitView(_ outfit: ScoredOutfit, geometry: GeometryProxy) -> some View {
+        let availableHeight = geometry.size.height - drawerPeekHeight - 100
+
+        return VStack {
+            LockedOutfitCard(
+                imageURL: URL(string: heroImageUrl(for: outfit) ?? ""),
+                onUnlock: {
+                    showProPaywall = true
+                }
+            )
+            .frame(maxWidth: geometry.size.width - 48)
+            .frame(maxHeight: availableHeight)
+            .padding(.horizontal, 24)
+
+            Spacer()
+        }
+        .padding(.top, 90)
     }
 
     // MARK: - Top Bar
@@ -184,11 +255,16 @@ struct OutfitResultsView: View {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     isSaved.toggle()
                 }
+                // Award XP when liking (not un-liking)
+                if isSaved {
+                    GamificationService.shared.awardXP(2, reason: .outfitLiked)
+                }
             } label: {
                 Image(systemName: isSaved ? "heart.fill" : "heart")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(isSaved ? .red : AppColors.textPrimary)
                     .frame(width: 44, height: 44)
+                    .symbolEffect(.bounce, value: isSaved)
             }
         }
         .padding(.horizontal, 16)
@@ -263,9 +339,9 @@ struct OutfitResultsView: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
                             case .failure, .empty:
-                                Rectangle().fill(Color(hex: "F5F5F5"))
+                                SkeletonBox(height: 36, width: 36, cornerRadius: 6)
                             @unknown default:
-                                Rectangle().fill(Color(hex: "F5F5F5"))
+                                SkeletonBox(height: 36, width: 36, cornerRadius: 6)
                             }
                         }
                         .frame(width: 36, height: 36)
@@ -310,9 +386,9 @@ struct OutfitResultsView: View {
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)
                                 case .failure, .empty:
-                                    Rectangle().fill(Color(hex: "F5F5F5"))
+                                    SkeletonBox(height: 56, width: 56, cornerRadius: 8)
                                 @unknown default:
-                                    Rectangle().fill(Color(hex: "F5F5F5"))
+                                    SkeletonBox(height: 56, width: 56, cornerRadius: 8)
                                 }
                             }
                             .frame(width: 56, height: 56)
@@ -435,6 +511,30 @@ struct OutfitResultsView: View {
 
     // MARK: - Actions
 
+    private func shareOutfit(_ outfit: ScoredOutfit) {
+        HapticManager.shared.light()
+
+        // Get wardrobe items for the outfit
+        let items: [WardrobeItem] = outfit.wardrobeItemIds.compactMap { itemId in
+            wardrobeService.items.first { $0.id == itemId }
+        }
+
+        // Get the root view controller
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first?.rootViewController else {
+            return
+        }
+
+        Task {
+            await shareService.shareOutfit(
+                outfit: outfit,
+                items: items,
+                occasion: outfit.occasion,
+                from: rootVC
+            )
+        }
+    }
+
     private func skipOutfit() {
         HapticManager.shared.light()
         if currentIndex < outfits.count - 1 {
@@ -475,7 +575,7 @@ struct OutfitResultsView: View {
             try? await outfitRepo.markAsWorn(outfit, photoUrl: nil)
 
             await MainActor.run {
-                xpAmount = 50
+                xpAmount = 25  // 10 base + 15 verify bonus
                 isXPBonus = true
                 showXPToast = true
 
@@ -493,7 +593,7 @@ struct OutfitResultsView: View {
             try? await outfitRepo.markAsWorn(outfit)
 
             await MainActor.run {
-                xpAmount = 25
+                xpAmount = 10  // Base wear XP only
                 isXPBonus = false
                 showXPToast = true
 

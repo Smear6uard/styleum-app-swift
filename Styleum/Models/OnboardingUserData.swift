@@ -7,6 +7,7 @@ struct OnboardingUserData {
     var likedStyleIds: [String] = []
     var dislikedStyleIds: [String] = []
     var referralSource: String? = nil
+    var notificationHour: Int? = nil  // nil = skipped, will default to 9 AM
 
     /// Check if minimum required data is collected
     var isComplete: Bool {

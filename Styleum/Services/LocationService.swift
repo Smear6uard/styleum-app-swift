@@ -35,25 +35,32 @@ final class LocationService: NSObject {
     // MARK: - Get Location
 
     func getCurrentLocation() async -> CLLocationCoordinate2D? {
+        print("📍 [Location] getCurrentLocation() called")
+
         // Check cache first
         if let location = currentLocation,
            let lastUpdate = lastLocationUpdate,
            Date().timeIntervalSince(lastUpdate) < cacheExpiry {
+            print("📍 [Location] Returning cached: \(location.latitude), \(location.longitude)")
             return location
         }
 
         // Check authorization
+        print("📍 [Location] Auth status: \(authorizationStatus.rawValue)")
         switch authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
-            break
+            print("📍 [Location] Authorized, requesting location...")
         case .notDetermined:
+            print("📍 [Location] Not determined, requesting permission...")
             requestPermission()
             // Wait a bit for user response
             try? await Task.sleep(for: .milliseconds(500))
             if authorizationStatus != .authorizedWhenInUse && authorizationStatus != .authorizedAlways {
+                print("📍 [Location] Permission denied after request")
                 return nil
             }
         default:
+            print("📍 [Location] Permission denied or restricted")
             return nil
         }
 
@@ -66,6 +73,7 @@ final class LocationService: NSObject {
             Task {
                 try? await Task.sleep(for: .seconds(10))
                 if locationContinuation != nil {
+                    print("📍 [Location] Timeout after 10s")
                     locationContinuation?.resume(returning: nil)
                     locationContinuation = nil
                 }
@@ -97,8 +105,12 @@ extension LocationService: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.first else { return }
+        guard let location = locations.first else {
+            print("📍 [Location] didUpdateLocations called but no locations")
+            return
+        }
 
+        print("📍 [Location] Got location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
         currentLocation = location.coordinate
         lastLocationUpdate = Date()
 
@@ -113,7 +125,7 @@ extension LocationService: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error)")
+        print("📍 [Location] Failed with error: \(error.localizedDescription)")
 
         // Resume with nil on error
         locationContinuation?.resume(returning: nil)

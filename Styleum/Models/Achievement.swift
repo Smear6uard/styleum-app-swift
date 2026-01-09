@@ -1,5 +1,13 @@
 import SwiftUI
 
+// MARK: - API Response Wrapper
+
+struct AchievementsResponse: Codable {
+    let achievements: [Achievement]
+}
+
+// MARK: - Achievement Model
+
 struct Achievement: Identifiable, Codable, Equatable {
     let id: String
     let title: String
@@ -10,11 +18,10 @@ struct Achievement: Identifiable, Codable, Equatable {
     let targetProgress: Int
     let iconName: String
     let xpReward: Int
-    var unlockedAt: Date?
+    let isUnlocked: Bool
     var seenAt: Date?
     let sortOrder: Int
 
-    var isUnlocked: Bool { unlockedAt != nil }
     var isNew: Bool { isUnlocked && seenAt == nil }
 
     var progressPercent: Double {
@@ -28,15 +35,15 @@ struct Achievement: Identifiable, Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id
-        case title
+        case title = "name"
         case description
         case category
         case rarity
-        case currentProgress = "current_progress"
-        case targetProgress = "target_progress"
+        case currentProgress = "progress"
+        case targetProgress = "target"
         case iconName = "icon_name"
         case xpReward = "xp_reward"
-        case unlockedAt = "unlocked_at"
+        case isUnlocked = "is_unlocked"
         case seenAt = "seen_at"
         case sortOrder = "sort_order"
     }
@@ -52,7 +59,7 @@ struct Achievement: Identifiable, Codable, Equatable {
         targetProgress: Int,
         iconName: String,
         xpReward: Int,
-        unlockedAt: Date?,
+        isUnlocked: Bool,
         seenAt: Date?,
         sortOrder: Int
     ) {
@@ -65,32 +72,31 @@ struct Achievement: Identifiable, Codable, Equatable {
         self.targetProgress = targetProgress
         self.iconName = iconName
         self.xpReward = xpReward
-        self.unlockedAt = unlockedAt
+        self.isUnlocked = isUnlocked
         self.seenAt = seenAt
         self.sortOrder = sortOrder
     }
 
-    // Custom decoder to handle joined query from achievement_definitions + user_achievements
+    // Custom decoder with defaults for fields not in backend response
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
         description = try container.decode(String.self, forKey: .description)
         category = try container.decode(AchievementCategory.self, forKey: .category)
-        rarity = try container.decode(AchievementRarity.self, forKey: .rarity)
-        targetProgress = try container.decode(Int.self, forKey: .targetProgress)
-        iconName = try container.decode(String.self, forKey: .iconName)
-        xpReward = try container.decodeIfPresent(Int.self, forKey: .xpReward) ?? 0
-        sortOrder = try container.decodeIfPresent(Int.self, forKey: .sortOrder) ?? 0
-
-        // These come from user_achievements join and may be nil
+        rarity = try container.decodeIfPresent(AchievementRarity.self, forKey: .rarity) ?? .common
         currentProgress = try container.decodeIfPresent(Int.self, forKey: .currentProgress) ?? 0
-        unlockedAt = try container.decodeIfPresent(Date.self, forKey: .unlockedAt)
+        targetProgress = try container.decodeIfPresent(Int.self, forKey: .targetProgress) ?? 1
+        iconName = try container.decodeIfPresent(String.self, forKey: .iconName) ?? "star.fill"
+        xpReward = try container.decodeIfPresent(Int.self, forKey: .xpReward) ?? 0
+        isUnlocked = try container.decodeIfPresent(Bool.self, forKey: .isUnlocked) ?? false
         seenAt = try container.decodeIfPresent(Date.self, forKey: .seenAt)
+        sortOrder = try container.decodeIfPresent(Int.self, forKey: .sortOrder) ?? 0
     }
 }
 
-// Response from update-achievements edge function
+// MARK: - Achievement Update Response
+
 struct AchievementUpdateResponse: Codable {
     let success: Bool
     let newlyUnlocked: [UnlockedAchievement]?

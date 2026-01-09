@@ -1,9 +1,11 @@
 import SwiftUI
+import CoreLocation
 
 struct RootView: View {
     @State private var authService = AuthService.shared
     @State private var streakService = StreakService.shared
     @State private var profileService = ProfileService.shared
+    @State private var gamificationService = GamificationService.shared
     @State private var isCheckingSession = true
 
     /// Check if onboarding should be shown (onboardingVersion is nil or < 2)
@@ -64,6 +66,9 @@ struct RootView: View {
                 // Profile loaded, onboarding complete - show main app
                 MainTabView()
                     .achievementCelebration()
+                    .levelUpCelebration()
+                    .streakProtection()
+                    .xpToastOverlay()
                     .onAppear {
                         print("🏠 [ROOT] 📱 SHOWING: MainTabView")
                         print("🏠 [ROOT] Reason: isAuthenticated=true, shouldShowOnboarding=false")
@@ -88,19 +93,27 @@ struct RootView: View {
                 print("🏠 [ROOT] Profile onboardingVersion: \(profileService.currentProfile?.onboardingVersion.map { String($0) } ?? "nil")")
                 print("🏠 [ROOT] Profile styleQuizCompleted: \(profileService.currentProfile?.styleQuizCompleted.map { String($0) } ?? "nil")")
 
-                print("🏠 [ROOT] Step 3: Fetching streak stats...")
+                print("🏠 [ROOT] Step 3: Fetching streak and gamification stats...")
                 await streakService.fetchStats()
+                await gamificationService.loadGamificationData()
                 print("🏠 [ROOT] Step 3 Complete.")
+
+                // Step 4: Pre-load outfits and save location (parallel, non-blocking)
+                print("🏠 [ROOT] Step 4: Pre-loading outfits and saving location...")
+                async let preloadOutfits: () = OutfitRepository.shared.loadPreGeneratedIfAvailable()
+                async let saveLocation: () = saveUserLocationForPreGeneration()
+                _ = await (preloadOutfits, saveLocation)
+                print("🏠 [ROOT] Step 4 Complete.")
             } else {
                 print("🏠 [ROOT] ⚠️ User NOT authenticated - skipping profile/streak fetch")
             }
 
             // Brief delay for splash
-            print("🏠 [ROOT] Step 4: Waiting 1.5s splash delay...")
+            print("🏠 [ROOT] Step 5: Waiting 1.5s splash delay...")
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            print("🏠 [ROOT] Step 4 Complete.")
+            print("🏠 [ROOT] Step 5 Complete.")
 
-            print("🏠 [ROOT] Step 5: Setting isCheckingSession=false with animation")
+            print("🏠 [ROOT] Step 6: Setting isCheckingSession=false with animation")
             print("🏠 [ROOT] Final state check:")
             print("🏠 [ROOT]   - isAuthenticated: \(authService.isAuthenticated)")
             print("🏠 [ROOT]   - profile exists: \(profileService.currentProfile != nil)")
@@ -125,15 +138,28 @@ struct RootView: View {
                 Task {
                     await profileService.fetchProfile()
                     await streakService.fetchStats()
-                    print("🏠 [ROOT] ⚡️ Profile fetch complete after sign-in")
+                    await gamificationService.loadGamificationData()
+                    print("🏠 [ROOT] ⚡️ Profile and gamification fetch complete after sign-in")
                 }
             }
 
-            // User signed out - reset profile state
+            // User signed out - reset profile and gamification state
             if wasAuthenticated && !isAuthenticated {
-                print("🏠 [ROOT] ⚡️ User signed out - resetting profile")
+                print("🏠 [ROOT] ⚡️ User signed out - resetting profile and gamification")
                 profileService.reset()
+                gamificationService.reset()
             }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func saveUserLocationForPreGeneration() async {
+        if let location = await LocationService.shared.getCurrentLocation() {
+            await StyleumAPI.shared.saveLocationForPreGeneration(
+                latitude: location.latitude,
+                longitude: location.longitude
+            )
         }
     }
 }

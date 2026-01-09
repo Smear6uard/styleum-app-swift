@@ -31,5 +31,32 @@
 	</array>
 	<key>GIDClientID</key>
 	<string>642816391624-9f84235tn3aimlhekvo0tcgteh7m5mp2.apps.googleusercontent.com</string>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.styleum.styleme</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Style Me</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>wand.and.stars</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.styleum.additem</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Add Item</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>camera</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.styleum.wardrobe</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>My Wardrobe</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>tshirt</string>
+		</dict>
+	</array>
 </dict>
 </plist>
