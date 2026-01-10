@@ -64,8 +64,21 @@ struct ListRow<Leading: View, Trailing: View>: View {
             .padding(.vertical, AppSpacing.sm)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ListRowButtonStyle())
         .disabled(action == nil)
+    }
+}
+
+// MARK: - Polish Button Style
+private struct ListRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: AppSpacing.radiusSm)
+                    .fill(configuration.isPressed ? AppColors.fill : Color.clear)
+            )
+            .scaleEffect(configuration.isPressed ? 0.99 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: configuration.isPressed)
     }
 }
 

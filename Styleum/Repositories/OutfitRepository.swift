@@ -9,6 +9,13 @@ final class OutfitRepository {
     private let wardrobeService = WardrobeService.shared
     private let locationService = LocationService.shared
 
+    // Track first outfit milestone
+    @ObservationIgnored
+    private var hasGeneratedFirstOutfit: Bool {
+        get { UserDefaults.standard.bool(forKey: "hasGeneratedFirstOutfit") }
+        set { UserDefaults.standard.set(newValue, forKey: "hasGeneratedFirstOutfit") }
+    }
+
     // MARK: - Pre-Generated Outfits (Free, shown on Home)
 
     var preGeneratedOutfits: [ScoredOutfit] = []
@@ -142,6 +149,12 @@ final class OutfitRepository {
             let xpForGeneration = result.outfits.count
             GamificationService.shared.awardXP(xpForGeneration, reason: .outfitGenerated)
             GamificationService.shared.updateChallengeProgress(for: .generateOutfit)
+
+            // First outfit celebration
+            if !hasGeneratedFirstOutfit && !result.outfits.isEmpty {
+                hasGeneratedFirstOutfit = true
+                NotificationCenter.default.post(name: .firstOutfitGenerated, object: nil)
+            }
 
             // Save location for future pre-generation
             if let loc = location {

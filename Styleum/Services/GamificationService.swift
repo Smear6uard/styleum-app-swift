@@ -228,18 +228,20 @@ final class GamificationService {
             totalDaysActive = stats.totalDaysActive
             streakFreezes = stats.streakFreezes
             xp = stats.xp
-            level = stats.level
+            // Bug Fix: Always calculate level from XP to ensure consistency
+            // This prevents "Level 1 54/50" display when backend level is stale
+            level = levelFromXP(stats.xp)
             dailyXPEarned = stats.dailyXPEarned ?? 0
             dailyGoalXP = stats.dailyGoalXP ?? 50
             hasEngagedToday = stats.hasEngagedToday ?? false
             streakFrozenToday = stats.streakFrozenToday ?? false
             hoursUntilStreakLoss = stats.hoursUntilStreakLoss ?? 24
 
-            // Check for level up
-            if stats.level > oldLevel && oldLevel > 0 {
+            // Check for level up (use calculated level, not backend level)
+            if level > oldLevel && oldLevel > 0 {
                 NotificationCenter.default.post(
                     name: .levelUp,
-                    object: LevelUpInfo(newLevel: stats.level, oldLevel: oldLevel, levelTitle: levelTitle)
+                    object: LevelUpInfo(newLevel: level, oldLevel: oldLevel, levelTitle: levelTitle)
                 )
             }
 

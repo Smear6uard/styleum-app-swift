@@ -99,7 +99,7 @@ final class TierManager {
     /// Optimistically update usage after an action
     @MainActor
     func decrementStyleCredits() {
-        guard var info = tierInfo else { return }
+        guard let info = tierInfo else { return }
         // Create updated usage with decremented credits
         let updatedUsage = TierUsage(
             wardrobeItems: info.usage.wardrobeItems,

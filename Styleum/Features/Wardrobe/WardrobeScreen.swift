@@ -1,9 +1,11 @@
 import SwiftUI
+import Kingfisher
 
 struct WardrobeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
-    @State private var wardrobeService = WardrobeService.shared
-    @State private var tierManager = TierManager.shared
+    // Use direct singleton reference instead of @State for shared services
+    private let wardrobeService = WardrobeService.shared
+    private let tierManager = TierManager.shared
     @State private var selectedCategories: Set<String> = ["All"]
 
     // Quick actions state
@@ -17,6 +19,9 @@ struct WardrobeScreen: View {
 
     // Paywall state
     @State private var showCapsuleComplete = false
+
+    // Animation state
+    @State private var itemsAppeared = false
 
     @Namespace private var wardrobeNamespace
 
@@ -72,7 +77,7 @@ struct WardrobeScreen: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("My Wardrobe")
-                        .font(.system(size: 28, weight: .bold, design: .serif))
+                        .font(AppTypography.editorialHeadline)
                         .foregroundColor(AppColors.textPrimary)
 
                     // Tier-aware item counter
@@ -283,6 +288,21 @@ struct WardrobeScreen: View {
                     HapticManager.shared.light()
                     await wardrobeService.fetchItems()
                 }
+                .onAppear {
+                    // Trigger staggered entrance animation
+                    if !itemsAppeared {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            itemsAppeared = true
+                        }
+                    }
+                }
+                .onChange(of: filteredItems.count) { _, _ in
+                    // Reset animation when items change significantly
+                    itemsAppeared = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        itemsAppeared = true
+                    }
+                }
             }
         }
         .background(AppColors.background)
@@ -376,12 +396,15 @@ struct WardrobeScreen: View {
     private func wardrobeGridItem(item: WardrobeItem, index: Int) -> some View {
         ZStack {
             WardrobeItemCard(item: item, namespace: wardrobeNamespace)
-                .staggeredAppearance(index: index)
+                .opacity(itemsAppeared ? 1 : 0)
+                .offset(y: itemsAppeared ? 0 : 20)
+                .animation(AppAnimations.staggeredFast(index: index), value: itemsAppeared)
 
-            // Selection overlay
+            // Selection overlay - matches new card radius
             if isSelectMode {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(selectedItems.contains(item.id) ? Color.clear : Color.black.opacity(0.3))
+                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+                    .fill(selectedItems.contains(item.id) ? Color.clear : Color.black.opacity(0.35))
+                    .animation(AppAnimations.fast, value: selectedItems.contains(item.id))
 
                 // Checkmark for selected
                 if selectedItems.contains(item.id) {
@@ -389,25 +412,27 @@ struct WardrobeScreen: View {
                         HStack {
                             Circle()
                                 .fill(AppColors.black)
-                                .frame(width: 26, height: 26)
+                                .frame(width: 28, height: 28)
                                 .overlay(
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 13, weight: .bold))
+                                        .font(.system(size: 14, weight: .bold))
                                         .foregroundColor(.white)
                                 )
-                                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
                             Spacer()
                         }
                         Spacer()
                     }
-                    .padding(10)
+                    .padding(12)
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
         }
+        .contentShape(Rectangle())
         .onTapGesture {
             if isSelectMode {
                 // Toggle selection
-                withAnimation(AppAnimations.fast) {
+                withAnimation(AppAnimations.springSnappy) {
                     if selectedItems.contains(item.id) {
                         selectedItems.remove(item.id)
                         // Exit select mode if no items selected
@@ -418,15 +443,15 @@ struct WardrobeScreen: View {
                         selectedItems.insert(item.id)
                     }
                 }
-                HapticManager.shared.light()
+                HapticManager.shared.selection()
             } else {
                 HapticManager.shared.light()
                 coordinator.navigate(to: .itemDetail(itemId: item.id))
             }
         }
-        .onLongPressGesture(minimumDuration: 0.5) {
-            // Enter select mode
-            withAnimation(AppAnimations.spring) {
+        .onLongPressGesture(minimumDuration: 0.4) {
+            // Enter select mode - slightly faster
+            withAnimation(AppAnimations.springSnappy) {
                 isSelectMode = true
                 selectedItems.insert(item.id)
             }
@@ -442,7 +467,7 @@ struct WardrobeScreen: View {
     }
 }
 
-// MARK: - Editorial Wardrobe Item Card (3:4 aspect ratio, SSENSE-style)
+// MARK: - Editorial Wardrobe Item Card (3:4 aspect ratio, Premium)
 struct WardrobeItemCard: View {
     let item: WardrobeItem
     var namespace: Namespace.ID
@@ -456,65 +481,81 @@ struct WardrobeItemCard: View {
             // Image container with parallax and wear count badge
             GeometryReader { geo in
                 let minY = geo.frame(in: .global).minY
-                let parallaxOffset = max(-10, min(10, (minY - 300) * 0.03))
+                let parallaxOffset = max(-15, min(15, (minY - 300) * 0.04))
 
                 ZStack(alignment: .topTrailing) {
-                    AsyncImage(url: URL(string: item.displayPhotoUrl ?? "")) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: geo.size.width, height: geo.size.width * 4/3)
-                                .clipped()
-                                .offset(y: parallaxOffset)
-                        case .failure:
-                            errorPlaceholder
-                        case .empty:
-                            loadingPlaceholder
-                        @unknown default:
-                            loadingPlaceholder
-                        }
+                    // Use Kingfisher for proper caching, deduplication, and memory management
+                    if let urlString = item.displayPhotoUrl,
+                       !urlString.isEmpty,
+                       let url = URL(string: urlString) {
+                        KFImage(url)
+                            .placeholder {
+                                loadingPlaceholder
+                            }
+                            .onFailure { _ in }
+                            .fade(duration: 0.25)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: geo.size.width, height: geo.size.width * 4/3)
+                            .clipped()
+                            .offset(y: parallaxOffset)
+                            .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
+                    } else {
+                        // No valid URL - show logo placeholder immediately
+                        fallbackPlaceholder
+                            .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
                     }
 
-                    // Wear count badge
+                    // Wear count badge - refined
                     if wearCount > 0 {
-                        HStack(spacing: 2) {
+                        HStack(spacing: 3) {
                             Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 9, weight: .semibold))
-                            Text("\(wearCount)")
                                 .font(.system(size: 10, weight: .semibold))
+                            Text("\(wearCount)")
+                                .font(.system(size: 11, weight: .bold))
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(.black.opacity(0.6))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.black.opacity(0.7))
                         .clipShape(Capsule())
-                        .padding(8)
+                        .padding(10)
                     }
                 }
             }
             .aspectRatio(3/4, contentMode: .fit)
             .clipped()
-            .cornerRadius(6)
-            .background(Color(hex: "F8F8F8"))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(AppColors.border.opacity(0.3), lineWidth: 1)
+            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
+            .background(
+                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+                    .fill(Color(hex: "FAFAFA"))
             )
 
-            // Item info - always reserve space for consistent card heights
-            Text(item.itemName ?? " ")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(item.itemName != nil ? AppColors.textPrimary : .clear)
-                .lineLimit(1)
-                .padding(.vertical, 10)
-                .padding(.horizontal, 4)
+            // Item info - Bug Fix: Always show name or category fallback
+            VStack(alignment: .leading, spacing: 2) {
+                // Always show a name - use category as fallback, then "Unnamed"
+                Text(item.itemName ?? item.category?.displayName ?? "Unnamed")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppColors.textPrimary)
+                    .lineLimit(1)
+
+                // Category sublabel - always show if we have category (even without name)
+                if let category = item.category {
+                    Text(category.rawValue.capitalized)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(AppColors.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 2)
         }
         .frame(maxWidth: .infinity)
         .background(Color.clear)
-        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
-        .shadow(color: .black.opacity(0.04), radius: 2, x: 0, y: 1)
+        // Triple-layer shadow for depth
+        .shadow(color: .black.opacity(0.03), radius: 1, y: 1)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 4)
+        .shadow(color: .black.opacity(0.03), radius: 20, y: 8)
     }
 
     private var loadingPlaceholder: some View {
@@ -522,12 +563,25 @@ struct WardrobeItemCard: View {
     }
 
     private var errorPlaceholder: some View {
-        Rectangle()
-            .fill(Color(hex: "F8F8F8"))
+        RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+            .fill(Color(hex: "F5F5F5"))
             .overlay(
                 Image(systemName: "photo")
-                    .font(.system(size: 24))
-                    .foregroundColor(AppColors.textMuted)
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundColor(AppColors.textMuted.opacity(0.5))
+            )
+    }
+
+    // Bug Fix: Proper fallback placeholder with app logo for missing URLs
+    private var fallbackPlaceholder: some View {
+        RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+            .fill(Color(hex: "F5F5F5"))
+            .overlay(
+                Image(.logo)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .opacity(0.3)
             )
     }
 }
@@ -556,15 +610,20 @@ struct WardrobeItemSkeleton: View {
                     .offset(x: shimmerOffset)
             }
             .aspectRatio(3/4, contentMode: .fit)
-            .cornerRadius(6)
-            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
 
             // Title placeholder
-            RoundedRectangle(cornerRadius: 3)
-                .fill(AppColors.backgroundSecondary)
-                .frame(height: 12)
-                .padding(.top, 10)
-                .padding(.horizontal, 4)
+            VStack(alignment: .leading, spacing: 6) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(AppColors.backgroundSecondary)
+                    .frame(height: 14)
+
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(AppColors.backgroundSecondary.opacity(0.6))
+                    .frame(width: 60, height: 10)
+            }
+            .padding(.top, 10)
+            .padding(.horizontal, 2)
         }
         .onAppear {
             withAnimation(

@@ -18,6 +18,10 @@ struct StyleMeScreen: View {
     // Paywall state
     @State private var showCreditsExhausted = false
 
+    // Entrance ceremony state
+    @State private var showEntranceCeremony = false
+    @State private var entranceCeremonyComplete = false
+
     // MARK: - Computed State Properties
 
     private var isLoading: Bool { outfitRepo.isGenerating }
@@ -80,6 +84,15 @@ struct StyleMeScreen: View {
             withAnimation {
                 hasAppeared = true
             }
+        }
+        .fullScreenCover(isPresented: $showEntranceCeremony) {
+            StyleMeEntranceCeremony(isComplete: $entranceCeremonyComplete)
+                .onChange(of: entranceCeremonyComplete) { _, complete in
+                    if complete {
+                        showEntranceCeremony = false
+                        startActualGeneration()
+                    }
+                }
         }
         .sheet(isPresented: $showCreditsExhausted) {
             if let usage = tierManager.tierInfo?.usage {
@@ -149,9 +162,9 @@ struct StyleMeScreen: View {
             VStack(spacing: 20) {
                 // Time-based greeting
                 Text(timeBasedGreeting)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(AppTypography.labelMedium)
                     .foregroundColor(AppColors.textSecondary)
-                    .tracking(0.5)
+                    .kerning(0.5)
 
                 // Weather context - subtle, integrated
                 if let weather = outfitRepo.currentWeather ?? outfitRepo.preGeneratedWeather {
@@ -163,9 +176,9 @@ struct StyleMeScreen: View {
                 // Main headline - clear, confident
                 VStack(spacing: 6) {
                     Text("What should I")
-                        .font(.system(size: 32, weight: .light, design: .serif))
+                        .font(AppTypography.editorialHero)
                     Text("wear today?")
-                        .font(.system(size: 32, weight: .light, design: .serif))
+                        .font(AppTypography.editorialHero)
                 }
                 .foregroundColor(AppColors.textPrimary)
                 .multilineTextAlignment(.center)
@@ -225,10 +238,17 @@ struct StyleMeScreen: View {
             }
         }
 
+        // Show entrance ceremony first (ritual moment)
+        entranceCeremonyComplete = false
+        showEntranceCeremony = true
+    }
+
+    /// Called after entrance ceremony completes - starts the actual generation
+    private func startActualGeneration() {
         // Clear previous outfits so hasOutfits is false during generation
         // This ensures skeleton shows instead of previous results
         outfitRepo.clearSessionOutfits()
-        
+
         // Ensure any lingering fullScreenCover is dismissed
         if coordinator.activeFullScreen == .outfitResults {
             coordinator.dismissFullScreen()

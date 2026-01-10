@@ -8,8 +8,11 @@ struct ProfileScreen: View {
     @State private var achievementsService = AchievementsService.shared
     @State private var gamificationService = GamificationService.shared
     @State private var authService = AuthService.shared
+    @State private var locationService = LocationService.shared
     @State private var showEditUsername = false
     @State private var editingUsername = ""
+    @State private var showSignOutConfirmation = false
+    @State private var isSigningOut = false
 
     var body: some View {
         ScrollView {
@@ -28,6 +31,7 @@ struct ProfileScreen: View {
 
                 // Avatar - tappable to edit
                 Button {
+                    HapticManager.shared.light()
                     editingUsername = profileService.currentProfile?.firstName ?? ""
                     showEditUsername = true
                 } label: {
@@ -42,6 +46,7 @@ struct ProfileScreen: View {
                 // Name and location - with edit capability
                 VStack(spacing: 4) {
                     Button {
+                        HapticManager.shared.light()
                         editingUsername = profileService.currentProfile?.firstName ?? ""
                         showEditUsername = true
                     } label: {
@@ -60,7 +65,7 @@ struct ProfileScreen: View {
                     HStack(spacing: 4) {
                         Image(systemName: "location")
                             .font(.system(size: 12, weight: .medium))
-                        Text("Chicago, IL")
+                        Text(locationService.locationName.isEmpty ? "Location unavailable" : locationService.locationName)
                             .font(AppTypography.bodyMedium)
                     }
                     .foregroundColor(AppColors.textSecondary)
@@ -127,16 +132,36 @@ struct ProfileScreen: View {
                 .background(AppColors.backgroundSecondary)
                 .cornerRadius(AppSpacing.radiusLg)
 
-                // Sign out
+                // Sign out - polished pill button
                 Button {
-                    Task {
-                        try? await authService.signOut()
-                    }
+                    HapticManager.shared.light()
+                    showSignOutConfirmation = true
                 } label: {
-                    Text("Sign Out")
-                        .font(AppTypography.labelMedium)
-                        .foregroundColor(AppColors.textSecondary)
+                    HStack(spacing: 8) {
+                        Image(systemName: isSigningOut ? "hand.wave.fill" : "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 14, weight: .medium))
+                            .symbolEffect(.bounce, value: isSigningOut)
+
+                        if isSigningOut {
+                            HStack(spacing: 6) {
+                                Text("Signing Out")
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                    .tint(AppColors.textSecondary)
+                            }
+                        } else {
+                            Text("Sign Out")
+                        }
+                    }
+                    .font(AppTypography.labelMedium)
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.horizontal, AppSpacing.md)
+                    .padding(.vertical, AppSpacing.sm)
+                    .background(AppColors.backgroundSecondary)
+                    .cornerRadius(AppSpacing.radiusFull)
                 }
+                .buttonStyle(ProfileSignOutStyle())
+                .disabled(isSigningOut)
                 .padding(.top, AppSpacing.md)
             }
             .padding(AppSpacing.pageMargin)
@@ -154,10 +179,22 @@ struct ProfileScreen: View {
         } message: {
             Text("Enter your display name")
         }
+        .alert("Heading out?", isPresented: $showSignOutConfirmation) {
+            Button("Stay", role: .cancel) { }
+            Button("Sign Out", role: .destructive) {
+                Task {
+                    await performSignOut()
+                }
+            }
+        } message: {
+            Text("Your wardrobe will be waiting when you return.")
+        }
         .task {
             await profileService.fetchProfile()
             await achievementsService.fetchAchievements()
             await gamificationService.loadGamificationData()
+            // Ensure location is available for display
+            _ = await locationService.getCurrentLocation()
         }
     }
 
@@ -166,6 +203,19 @@ struct ProfileScreen: View {
         // TODO: Update ProfileUpdate model and API to support firstName update
         // For now, skipping update as API structure has changed
         // User can update name through API when support is added
+    }
+
+    private func performSignOut() async {
+        isSigningOut = true
+        HapticManager.shared.medium()
+
+        do {
+            try await authService.signOut()
+            HapticManager.shared.success()
+        } catch {
+            HapticManager.shared.error()
+            isSigningOut = false
+        }
     }
 
     private var initials: String {
@@ -413,6 +463,16 @@ private struct QuickStatPill: View {
         .padding(.vertical, 10)
         .background(AppColors.backgroundSecondary)
         .cornerRadius(AppSpacing.radiusSm)
+    }
+}
+
+// MARK: - Profile Sign Out Button Style
+private struct ProfileSignOutStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 

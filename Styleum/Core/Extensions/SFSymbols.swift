@@ -47,6 +47,7 @@ enum AppSymbol: String {
     case calendar = "calendar"
     case info = "info.circle"
     case warning = "exclamationmark.triangle.fill"
+    case search = "magnifyingglass"
 
     var image: Image {
         Image(systemName: rawValue)

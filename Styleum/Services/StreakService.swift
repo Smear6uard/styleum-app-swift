@@ -86,10 +86,25 @@ final class StreakService {
     // MARK: - Check Streak Milestone
 
     func checkStreakMilestone(_ streak: Int) {
-        let milestones = [3, 7, 14, 30, 100]
+        let milestoneData: [(days: Int, label: String, icon: String)] = [
+            (7, "Week Warrior", "flame"),
+            (14, "Fortnight Fighter", "flame.fill"),
+            (30, "Month Master", "star"),
+            (60, "Style Devotee", "star.fill"),
+            (90, "Fashion Expert", "crown"),
+            (365, "Style Legend", "crown.fill")
+        ]
 
-        if milestones.contains(streak) {
+        if let milestone = milestoneData.first(where: { $0.days == streak }) {
             HapticManager.shared.streakMilestone()
+
+            // Post notification for celebration view
+            let info = StreakMilestoneInfo(
+                days: milestone.days,
+                label: milestone.label,
+                icon: milestone.icon
+            )
+            NotificationCenter.default.post(name: .streakMilestoneReached, object: info)
         }
     }
 

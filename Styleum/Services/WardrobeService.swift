@@ -117,6 +117,7 @@ final class WardrobeService {
         print("Item created with ID: \(createdItem.id)")
 
         // 5. Add to local array with animation support
+        let isFirstItem = items.isEmpty
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
             items.insert(createdItem, at: 0)
         }
@@ -126,6 +127,17 @@ final class WardrobeService {
         // 6. Award gamification XP and update challenge progress
         GamificationService.shared.awardXP(5, reason: .itemAdded)
         GamificationService.shared.updateChallengeProgress(for: .addItem)
+
+        // 7. First item celebration
+        if isFirstItem {
+            NotificationCenter.default.post(name: .firstWardrobeItem, object: nil)
+        }
+
+        // Bug Fix: Refresh achievements to update "Add wardrobe item" progress
+        // Backend recalculates achievement progress based on actual item count
+        Task {
+            await AchievementsService.shared.fetchAchievements()
+        }
 
         return createdItem
     }

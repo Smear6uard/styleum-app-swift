@@ -36,6 +36,7 @@ struct ProUpgradeView: View {
     let trigger: UpgradeTrigger
     @State private var tierManager = TierManager.shared
     @State private var isPurchasing = false
+    @State private var showCelebration = false
 
     var body: some View {
         NavigationStack {
@@ -201,6 +202,12 @@ struct ProUpgradeView: View {
             }
         }
         .padding(.top, 8)
+        .fullScreenCover(isPresented: $showCelebration) {
+            ProUpgradeCelebrationView(trigger: trigger) {
+                showCelebration = false
+                dismiss()
+            }
+        }
     }
 
     // MARK: - Legal Footer
@@ -242,9 +249,16 @@ struct ProUpgradeView: View {
         defer { isPurchasing = false }
 
         // TODO: Implement RevenueCat purchase flow
-        // For now, just dismiss after a delay to simulate
+        // For now, simulate purchase and show celebration
         try? await Task.sleep(for: .seconds(1))
-        dismiss()
+
+        // Refresh tier state from backend
+        await tierManager.refresh()
+
+        // Show celebration!
+        await MainActor.run {
+            showCelebration = true
+        }
     }
 }
 

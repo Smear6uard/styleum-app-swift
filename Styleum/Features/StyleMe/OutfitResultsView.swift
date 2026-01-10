@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
 struct OutfitResultsView: View {
     /// When true, view is displayed inline (StyleMeScreen). When false, displayed as modal (HomeScreen fullScreenCover).
@@ -22,6 +23,7 @@ struct OutfitResultsView: View {
 
     // Sheet states
     @State private var showVerifySheet = false
+    @State private var showWearConfirmation = false
     @State private var showRegenerateSheet = false
     @State private var showProPaywall = false
 
@@ -30,9 +32,9 @@ struct OutfitResultsView: View {
     @State private var xpAmount = 0
     @State private var isXPBonus = false
 
-    // Drawer constants
-    private let drawerPeekHeight: CGFloat = 120
-    private let drawerExpandedHeight: CGFloat = 400
+    // Drawer constants - increased peek for better content visibility
+    private let drawerPeekHeight: CGFloat = 200
+    private let drawerExpandedHeight: CGFloat = 420
 
     private var outfits: [ScoredOutfit] { outfitRepo.todaysOutfits }
     private var currentOutfit: ScoredOutfit? {
@@ -55,7 +57,11 @@ struct OutfitResultsView: View {
                 // Background
                 Color(hex: "FAFAF8").ignoresSafeArea()
 
-                if let outfit = currentOutfit {
+                // Bug Fix: In inline mode, if outfits array is empty, show loading state
+                // instead of empty state (data may still be syncing)
+                if isInlineMode && outfits.isEmpty {
+                    loadingState
+                } else if let outfit = currentOutfit {
                     // MARK: - Hero Image (horizontal paging)
                     TabView(selection: $currentIndex) {
                         ForEach(Array(outfits.enumerated()), id: \.offset) { index, outfit in
@@ -136,6 +142,21 @@ struct OutfitResultsView: View {
                         handleUnverifiedWear()
                     }
                 )
+            }
+        }
+        .sheet(isPresented: $showWearConfirmation) {
+            if let outfit = currentOutfit {
+                WearConfirmationView(
+                    outfit: outfit,
+                    onConfirm: {
+                        showWearConfirmation = false
+                        handleWearConfirmed()
+                    },
+                    onCancel: {
+                        showWearConfirmation = false
+                    }
+                )
+                .presentationDetents([.medium])
             }
         }
         .sheet(isPresented: $showRegenerateSheet) {
@@ -335,10 +356,17 @@ struct OutfitResultsView: View {
     // MARK: - Peeking Content (Always Visible)
 
     private func peekingContent(outfit: ScoredOutfit) -> some View {
-        VStack(spacing: 6) {
-            // Item thumbnails row
+        VStack(spacing: 12) {
+            // Outfit narrative headline - contextual story
+            Text(outfit.narrativeHeadline)
+                .font(AppTypography.editorial(18, weight: .medium))
+                .foregroundColor(AppColors.textPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+
+            // Item thumbnails row - larger for better visibility
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     ForEach(outfit.items ?? [], id: \.id) { item in
                         AsyncImage(url: URL(string: item.imageUrl ?? "")) { phase in
                             switch phase {
@@ -347,30 +375,30 @@ struct OutfitResultsView: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
                             case .failure, .empty:
-                                SkeletonBox(height: 36, width: 36, cornerRadius: 6)
+                                SkeletonBox(height: 48, width: 48, cornerRadius: 8)
                             @unknown default:
-                                SkeletonBox(height: 36, width: 36, cornerRadius: 6)
+                                SkeletonBox(height: 48, width: 48, cornerRadius: 8)
                             }
                         }
-                        .frame(width: 36, height: 36)
-                        .cornerRadius(6)
+                        .frame(width: 48, height: 48)
+                        .cornerRadius(8)
                         .clipped()
                     }
                 }
                 .padding(.horizontal, 20)
             }
 
-            // "Why it works" teaser (truncated)
+            // "Why it works" - full explanation, not truncated
             if !outfit.whyItWorks.isEmpty {
                 Text(outfit.whyItWorks)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13))
                     .foregroundColor(AppColors.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 20)
             }
         }
-        .padding(.top, 4)
+        .padding(.top, 8)
     }
 
     // MARK: - Expanded Content
@@ -445,7 +473,7 @@ struct OutfitResultsView: View {
         VStack(spacing: 16) {
             // Outfit name - prominent
             Text(outfit.aiHeadline)
-                .font(.system(size: 20, weight: .semibold, design: .serif))
+                .font(AppTypography.editorialTitle)
                 .foregroundColor(AppColors.textPrimary)
                 .multilineTextAlignment(.center)
 
@@ -558,7 +586,22 @@ struct OutfitResultsView: View {
 
     private func wearOutfit() {
         HapticManager.shared.success()
-        showVerifySheet = true
+        // Show confirmation view instead of immediate verification
+        showWearConfirmation = true
+    }
+
+    // MARK: - Loading State (for inline mode while data syncs)
+
+    private var loadingState: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+                .scaleEffect(1.2)
+
+            Text("Loading your looks...")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(AppColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Empty State
@@ -624,6 +667,59 @@ struct OutfitResultsView: View {
         }
     }
 
+    /// Called when user confirms wearing the outfit (from WearConfirmationView)
+    private func handleWearConfirmed() {
+        guard let outfit = currentOutfit else { return }
+
+        Task {
+            // Mark as worn without photo (base XP)
+            try? await outfitRepo.markAsWorn(outfit, photoUrl: nil)
+
+            // Schedule verification reminder for 2-4 hours later
+            scheduleVerificationReminder(for: outfit)
+
+            await MainActor.run {
+                xpAmount = 10  // Base wear XP
+                isXPBonus = false
+                showXPToast = true
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    if isInlineMode {
+                        outfitRepo.clearSessionOutfits()
+                    } else {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    /// Schedules a local notification to remind user to verify their outfit photo
+    private func scheduleVerificationReminder(for outfit: ScoredOutfit) {
+        let content = UNMutableNotificationContent()
+        content.title = "Snap your look!"
+        content.body = "Verify your outfit for +15 bonus XP"
+        content.sound = .default
+
+        // Schedule for 2-4 hours later (random for natural feel)
+        let delay = Double.random(in: 7200...14400)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+
+        let request = UNNotificationRequest(
+            identifier: "verify-outfit-\(outfit.id)",
+            content: content,
+            trigger: trigger
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("[OutfitResults] Failed to schedule verification reminder: \(error)")
+            } else {
+                print("[OutfitResults] Verification reminder scheduled for \(Int(delay / 3600)) hours from now")
+            }
+        }
+    }
+
     // MARK: - Regenerate
 
     private func regenerateOutfit(with feedback: FeedbackType) {
@@ -653,23 +749,6 @@ struct OutfitResultsView: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - ScoredOutfit Extension
-
-extension ScoredOutfit {
-    var aiHeadline: String {
-        if let headline = headline, !headline.isEmpty {
-            return headline
-        }
-        if let vibe = vibe, !vibe.isEmpty {
-            return "\(vibe) vibes for your day"
-        }
-        if let occasion = occasion, !occasion.isEmpty {
-            return "Perfect for \(occasion)"
-        }
-        return "Stylish look for today"
     }
 }
 

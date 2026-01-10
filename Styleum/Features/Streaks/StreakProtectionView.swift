@@ -233,7 +233,7 @@ struct StreakLostView: View {
                 // Text
                 VStack(spacing: 12) {
                     Text("Streak Lost")
-                        .font(.system(size: 28, weight: .bold, design: .serif))
+                        .font(AppTypography.editorialHeadline)
                         .foregroundColor(.white)
 
                     Text("Your \(lostStreakCount)-day streak has ended.")

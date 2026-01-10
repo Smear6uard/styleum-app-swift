@@ -16,7 +16,7 @@ struct CreateOutfitSheet: View {
             VStack(spacing: AppSpacing.lg) {
                 // Header
                 Text("Create Outfit")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .font(AppTypography.editorialSubhead)
                     .foregroundColor(AppColors.textPrimary)
                     .padding(.top, AppSpacing.lg)
 

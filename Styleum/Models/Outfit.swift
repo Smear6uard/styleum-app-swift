@@ -198,6 +198,67 @@ struct WeatherContext: Codable, Equatable {
     }
 }
 
+// MARK: - ScoredOutfit Computed Properties
+extension ScoredOutfit {
+    /// Generates a contextual narrative headline for the outfit
+    /// Examples: "Your Monday Energy", "Casual Weekend Vibes", "Effortless Elegance"
+    var narrativeHeadline: String {
+        // First try the AI-generated headline if available
+        if let headline = headline, !headline.isEmpty {
+            return headline
+        }
+
+        // Build narrative from available context
+        let dayOfWeek = Calendar.current.component(.weekday, from: Date())
+        let dayName = Calendar.current.weekdaySymbols[dayOfWeek - 1]
+
+        if let vibe = vibe, !vibe.isEmpty {
+            // Use vibe + context
+            let vibeCapitalized = vibe.capitalized
+            if let occasion = occasion, !occasion.isEmpty {
+                return "\(vibeCapitalized) \(occasion.lowercased())"
+            }
+            return "\(vibeCapitalized) \(dayName)"
+        }
+
+        if let occasion = occasion, !occasion.isEmpty {
+            return "Your \(occasion.lowercased()) look"
+        }
+
+        if !vibes.isEmpty {
+            let primaryVibe = vibes.first?.capitalized ?? "Effortless"
+            return "\(primaryVibe) style"
+        }
+
+        // Fallback based on day
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:
+            return "Your \(dayName) morning"
+        case 12..<17:
+            return "Afternoon ready"
+        case 17..<21:
+            return "Evening elegance"
+        default:
+            return "Your look for today"
+        }
+    }
+
+    /// Generates a headline for action buttons (used in OutfitResultsView)
+    var aiHeadline: String {
+        if let headline = headline, !headline.isEmpty {
+            return headline
+        }
+        if let vibe = vibe, !vibe.isEmpty {
+            return vibe.capitalized
+        }
+        if !vibes.isEmpty {
+            return vibes.prefix(2).map { $0.capitalized }.joined(separator: " & ")
+        }
+        return "Today's Look"
+    }
+}
+
 struct StylePreferences: Codable, Equatable {
     var styleGoal: String?
     var avoidColors: [String]?

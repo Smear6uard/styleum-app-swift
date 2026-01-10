@@ -67,6 +67,9 @@ struct RootView: View {
                 MainTabView()
                     .achievementCelebration()
                     .levelUpCelebration()
+                    .streakMilestoneCelebration()
+                    .dailyGoalCelebration()
+                    .firstMilestoneCelebration()
                     .streakProtection()
                     .xpToastOverlay()
                     .onAppear {

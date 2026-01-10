@@ -14,12 +14,13 @@ struct XPToast: View {
                 .font(.system(size: 14, weight: .semibold))
 
             if isBonus {
-                Text("+\(amount) XP")
-                    .font(AppTypography.labelMedium)
-                +
-                Text(" · 2x bonus!")
-                    .font(AppTypography.labelSmall)
-                    .foregroundColor(.white.opacity(0.8))
+                HStack(spacing: 0) {
+                    Text("+\(amount) XP")
+                        .font(AppTypography.labelMedium)
+                    Text(" · 2x bonus!")
+                        .font(AppTypography.labelSmall)
+                        .foregroundColor(.white.opacity(0.8))
+                }
             } else {
                 Text("+\(amount) XP")
                     .font(AppTypography.labelMedium)

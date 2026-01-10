@@ -6,28 +6,24 @@ struct MainTabView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab content - ZStack for instant switching (no lazy loading)
+            // Tab content - ZStack with spring transitions
             ZStack {
                 HomeTab(coordinator: coordinator)
-                    .opacity(coordinator.selectedTab == .home ? 1 : 0)
-                    .allowsHitTesting(coordinator.selectedTab == .home)
+                    .tabTransition(isActive: coordinator.selectedTab == .home)
 
                 WardrobeTab(coordinator: coordinator)
-                    .opacity(coordinator.selectedTab == .wardrobe ? 1 : 0)
-                    .allowsHitTesting(coordinator.selectedTab == .wardrobe)
+                    .tabTransition(isActive: coordinator.selectedTab == .wardrobe)
 
                 StyleMeTab(coordinator: coordinator)
-                    .opacity(coordinator.selectedTab == .styleMe ? 1 : 0)
-                    .allowsHitTesting(coordinator.selectedTab == .styleMe)
+                    .tabTransition(isActive: coordinator.selectedTab == .styleMe)
 
                 AchievementsTab(coordinator: coordinator)
-                    .opacity(coordinator.selectedTab == .achievements ? 1 : 0)
-                    .allowsHitTesting(coordinator.selectedTab == .achievements)
+                    .tabTransition(isActive: coordinator.selectedTab == .achievements)
 
                 ProfileTab(coordinator: coordinator)
-                    .opacity(coordinator.selectedTab == .profile ? 1 : 0)
-                    .allowsHitTesting(coordinator.selectedTab == .profile)
+                    .tabTransition(isActive: coordinator.selectedTab == .profile)
             }
+            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: coordinator.selectedTab)
 
             // Custom tab bar
             TabBar(selectedTab: $coordinator.selectedTab)

@@ -121,12 +121,42 @@ struct AppButton: View {
     }
 }
 
-// MARK: - Scale Button Style
+// MARK: - Scale Button Style (Enhanced with shadow depth)
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .brightness(configuration.isPressed ? -0.02 : 0)
+            .shadow(
+                color: .black.opacity(configuration.isPressed ? 0.06 : 0.1),
+                radius: configuration.isPressed ? 2 : 6,
+                y: configuration.isPressed ? 1 : 3
+            )
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Premium Lift Button Style (with lift effect)
+struct LiftButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .offset(y: configuration.isPressed ? 0 : -2)
+            .shadow(
+                color: .black.opacity(configuration.isPressed ? 0.08 : 0.04),
+                radius: configuration.isPressed ? 12 : 8,
+                y: configuration.isPressed ? 6 : 4
+            )
+            .animation(AppAnimations.springMicro, value: configuration.isPressed)
+    }
+}
+
+// MARK: - Minimal Press Style (for subtle interactions)
+struct MinimalPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.7 : 1.0)
             .animation(AppAnimations.fast, value: configuration.isPressed)
     }
 }

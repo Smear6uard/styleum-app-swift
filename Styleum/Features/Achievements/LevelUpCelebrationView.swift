@@ -93,7 +93,7 @@ struct LevelUpCelebrationView: View {
 
                     // Level title
                     Text(levelUpInfo.levelTitle)
-                        .font(.system(size: 32, weight: .bold, design: .serif))
+                        .font(AppTypography.editorial(32, weight: .bold))
                         .foregroundColor(.white)
 
                     // Motivation message
@@ -249,6 +249,7 @@ private struct LevelUpParticle: Identifiable {
 
 private struct ConfettiOverlay: View {
     @State private var confettiPieces: [ConfettiPiece] = []
+    @State private var confettiTimer: Timer?
 
     private let colors: [Color] = [
         Color(hex: "8B5CF6"),
@@ -273,6 +274,10 @@ private struct ConfettiOverlay: View {
             .onAppear {
                 startConfetti(in: geo.size)
             }
+            .onDisappear {
+                confettiTimer?.invalidate()
+                confettiTimer = nil
+            }
         }
         .allowsHitTesting(false)
     }
@@ -284,7 +289,7 @@ private struct ConfettiOverlay: View {
         }
 
         // Create continuous stream
-        Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { timer in
+        confettiTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { timer in
             if confettiPieces.count > 100 {
                 // Remove old pieces
                 confettiPieces.removeFirst(10)

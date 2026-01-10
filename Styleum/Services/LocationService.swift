@@ -82,6 +82,8 @@ final class LocationService: NSObject {
     }
 
     // MARK: - Reverse Geocode
+    // Note: reverseGeocodeLocation is deprecated in iOS 26 but the new MapKit API
+    // isn't fully available yet. Update when iOS 26 SDK is released.
 
     private func reverseGeocode(_ location: CLLocation) async {
         do {
@@ -92,7 +94,7 @@ final class LocationService: NSObject {
                 }
             }
         } catch {
-            print("Reverse geocode failed: \(error)")
+            print("📍 [Location] Reverse geocode failed: \(error)")
         }
     }
 }

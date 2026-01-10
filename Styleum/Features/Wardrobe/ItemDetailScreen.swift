@@ -8,6 +8,10 @@ struct ItemDetailScreen: View {
     @State private var showDeleteConfirm = false
     @State private var showEditSheet = false
 
+    // Hero entrance animation state
+    @State private var heroAppeared = false
+    @State private var contentAppeared = false
+
     private var item: WardrobeItem? {
         wardrobeService.items.first { $0.id == itemId }
     }
@@ -16,52 +20,56 @@ struct ItemDetailScreen: View {
     private let imageBackground = Color(hex: "F5F5F3")
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // MARK: - Hero Image Area
-                ZStack(alignment: .topTrailing) {
-                    // Background
-                    imageBackground
-                        .frame(height: UIScreen.main.bounds.height * 0.55)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    // MARK: - Hero Image Area
+                    ZStack(alignment: .topTrailing) {
+                        // Background
+                        imageBackground
+                            .frame(height: geometry.size.height * 0.55)
 
-                    // Item image - centered with padding
-                    if let photoUrl = item?.displayPhotoUrl {
-                        AsyncImage(url: URL(string: photoUrl)) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            case .failure:
-                                Image(systemName: "photo")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(AppColors.textMuted)
-                            case .empty:
-                                CardImageSkeleton()
-                            @unknown default:
-                                EmptyView()
+                        // Item image - centered with padding + hero animation
+                        if let photoUrl = item?.displayPhotoUrl {
+                            AsyncImage(url: URL(string: photoUrl)) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .scaleEffect(heroAppeared ? 1 : 0.92)
+                                        .opacity(heroAppeared ? 1 : 0)
+                                case .failure:
+                                    Image(systemName: "photo")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(AppColors.textMuted)
+                                case .empty:
+                                    CardImageSkeleton()
+                                @unknown default:
+                                    EmptyView()
+                                }
                             }
+                            .padding(AppSpacing.xl)
+                            .frame(height: geometry.size.height * 0.55)
                         }
-                        .padding(AppSpacing.xl)
-                        .frame(height: UIScreen.main.bounds.height * 0.55)
-                    }
 
-                    // Close button - top right
-                    Button {
-                        HapticManager.shared.light()
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(AppColors.textSecondary)
-                            .frame(width: 36, height: 36)
-                            .background(Color.white.opacity(0.9))
-                            .clipShape(Circle())
+                        // Close button - top right
+                        Button {
+                            HapticManager.shared.light()
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(AppColors.textSecondary)
+                                .frame(width: 36, height: 36)
+                                .background(Color.white.opacity(0.9))
+                                .clipShape(Circle())
+                        }
+                        .padding(AppSpacing.pageMargin)
+                        .padding(.top, 50)
+                        .opacity(heroAppeared ? 1 : 0)
                     }
-                    .padding(AppSpacing.pageMargin)
-                    .padding(.top, 50)
-                }
 
                 // MARK: - Content Below Image
                 VStack(spacing: AppSpacing.xs) {
@@ -76,6 +84,8 @@ struct ItemDetailScreen: View {
                 }
                 .padding(.top, AppSpacing.lg)
                 .padding(.horizontal, AppSpacing.pageMargin)
+                .opacity(contentAppeared ? 1 : 0)
+                .offset(y: contentAppeared ? 0 : 16)
 
                 // MARK: - Primary CTA
                 Button {
@@ -95,6 +105,8 @@ struct ItemDetailScreen: View {
                 .buttonStyle(ScaleButtonStyle())
                 .padding(.horizontal, AppSpacing.pageMargin)
                 .padding(.top, AppSpacing.xl)
+                .opacity(contentAppeared ? 1 : 0)
+                .offset(y: contentAppeared ? 0 : 12)
 
                 // MARK: - Whisper Stats (only if > 0)
                 if item?.timesWorn ?? 0 > 0 {
@@ -102,6 +114,7 @@ struct ItemDetailScreen: View {
                         .font(AppTypography.bodySmall)
                         .foregroundColor(AppColors.textMuted)
                         .padding(.top, AppSpacing.lg)
+                        .opacity(contentAppeared ? 1 : 0)
                 }
 
                 // MARK: - Edit & Delete Links
@@ -125,11 +138,22 @@ struct ItemDetailScreen: View {
                 }
                 .padding(.top, AppSpacing.lg)
                 .padding(.bottom, AppSpacing.xxl)
+                .opacity(contentAppeared ? 1 : 0)
             }
+        }
         }
         .background(AppColors.background)
         .navigationBarHidden(true)
         .ignoresSafeArea(edges: .top)
+        .onAppear {
+            // Staggered hero entrance animation
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                heroAppeared = true
+            }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.15)) {
+                contentAppeared = true
+            }
+        }
         .confirmationDialog("Delete Item", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 HapticManager.shared.warning()
@@ -181,6 +205,11 @@ struct ItemEditSheet: View {
     // Edit state
     @State private var editedName: String = ""
     @State private var saveNameTask: Task<Void, Never>?
+    // Save feedback states
+    @State private var isSaving = false
+    @State private var saveSuccess = false
+    @State private var showSaveError = false
+    @State private var saveErrorMessage = ""
     @State private var showCategoryPicker = false
     @State private var showColorPicker = false
     @State private var showStylePicker = false
@@ -196,12 +225,24 @@ struct ItemEditSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                // Name
+                // Name - Bug Fix: Add visual feedback for save status
                 Section {
-                    TextField("Name", text: $editedName)
-                        .onChange(of: editedName) { _, newValue in
-                            saveName(newValue)
+                    HStack {
+                        TextField("Name", text: $editedName)
+                            .onChange(of: editedName) { _, newValue in
+                                saveName(newValue)
+                            }
+
+                        // Save status indicator
+                        if isSaving {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else if saveSuccess {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .transition(.scale.combined(with: .opacity))
                         }
+                    }
                 }
 
                 // Details
@@ -429,11 +470,29 @@ struct ItemEditSheet: View {
         .sheet(isPresented: $showSeasonsPicker) {
             SeasonsPickerSheet(itemId: itemId, currentSeasons: item?.seasons ?? [])
         }
+        .alert("Save Failed", isPresented: $showSaveError) {
+            Button("Retry") {
+                saveName(editedName)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(saveErrorMessage)
+        }
     }
 
     private func saveName(_ name: String) {
         // Cancel any pending save task
         saveNameTask?.cancel()
+        saveSuccess = false
+
+        // Trim whitespace for validation
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Validate: if not empty, require at least 2 characters
+        if !trimmedName.isEmpty && trimmedName.count < 2 {
+            // Don't show error yet, user might still be typing
+            return
+        }
 
         // Debounce: wait 500ms before saving to avoid excessive API calls
         saveNameTask = Task {
@@ -441,12 +500,44 @@ struct ItemEditSheet: View {
                 try await Task.sleep(for: .milliseconds(500))
                 guard !Task.isCancelled else { return }
 
-                let updates = WardrobeItemUpdate(itemName: name.isEmpty ? nil : name)
+                await MainActor.run { isSaving = true }
+
+                // Use trimmed name, or nil if empty (will use default display)
+                let updates = WardrobeItemUpdate(itemName: trimmedName.isEmpty ? nil : trimmedName)
                 try await wardrobeService.updateItem(id: itemId, updates: updates)
-                print("[ItemEdit] Name saved: \(name)")
+
+                // Force refresh to confirm persistence
+                await wardrobeService.fetchItems()
+
+                await MainActor.run {
+                    isSaving = false
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        saveSuccess = true
+                    }
+                    HapticManager.shared.success()
+
+                    // Verify the change persisted
+                    if let updatedItem = wardrobeService.items.first(where: { $0.id == itemId }) {
+                        print("[ItemEdit] Verified: name is now '\(updatedItem.itemName ?? "nil")'")
+                    }
+
+                    // Reset success indicator after delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation {
+                            saveSuccess = false
+                        }
+                    }
+                }
+                print("[ItemEdit] Name saved: '\(trimmedName)'")
             } catch {
-                if !(error is CancellationError) {
-                    print("[ItemEdit] Failed to save name: \(error)")
+                await MainActor.run {
+                    isSaving = false
+                    if !(error is CancellationError) {
+                        saveErrorMessage = "Couldn't save the name. Please try again."
+                        showSaveError = true
+                        HapticManager.shared.error()
+                        print("[ItemEdit] Failed to save name: \(error)")
+                    }
                 }
             }
         }

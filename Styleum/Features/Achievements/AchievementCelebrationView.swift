@@ -121,6 +121,9 @@ struct AchievementCelebrationOverlay: View {
         isPresented = true
         animationPhase = 0
 
+        // Haptic feedback
+        HapticManager.shared.achievementUnlock()
+
         // Staggered animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             animationPhase = 1

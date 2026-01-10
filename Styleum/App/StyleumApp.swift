@@ -43,14 +43,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Register custom fonts from asset catalog
+        FontManager.registerFonts()
+
         // Set notification delegate
         UNUserNotificationCenter.current().delegate = self
         print("📱 [APP] AppDelegate initialized, notification delegate set")
 
-        // Handle quick action if app was launched from one
-        if let shortcutItem = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem {
-            handleShortcutItem(shortcutItem)
-        }
+        // Note: Quick actions launched from cold start are handled by
+        // application(_:performActionFor:completionHandler:) delegate method
 
         return true
     }

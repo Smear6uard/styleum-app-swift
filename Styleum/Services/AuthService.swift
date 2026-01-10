@@ -19,7 +19,7 @@ final class AuthService {
 
     private init() {
         print("🔐 [AUTH] AuthService initialized")
-        print("🔐 [AUTH] Supabase client exists: \(supabase != nil)")
+        print("🔐 [AUTH] Supabase client initialized")
         Task {
             await checkSession()
         }
@@ -39,7 +39,7 @@ final class AuthService {
             print("🔐 [AUTH] Session user ID: \(session.user.id)")
             print("🔐 [AUTH] Session user email: \(session.user.email ?? "no email")")
             print("🔐 [AUTH] Session access token exists: \(!session.accessToken.isEmpty)")
-            print("🔐 [AUTH] Session expires at: \(session.expiresAt ?? 0)")
+            print("🔐 [AUTH] Session expires at: \(session.expiresAt)")
 
             currentUser = session.user
             print("🔐 [AUTH] ✅ currentUser set to: \(currentUser?.email ?? "nil")")

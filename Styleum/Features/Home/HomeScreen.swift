@@ -12,57 +12,18 @@ struct HomeScreen: View {
     @State private var isLoadingInsights = true
     @State private var headerAppeared = false
     @State private var showChallengesExpanded = false
+    @State private var scrollOffset: CGFloat = 0
 
     var body: some View {
-        ScrollView {
+        TrackableScrollView(scrollOffset: $scrollOffset) {
             VStack(spacing: AppSpacing.lg) {
-                // Editorial Header with Streak Flame
+                // Editorial Header with scroll-linked effects
                 headerSection
+                    .scrollLinkedHeader(scrollOffset: scrollOffset)
 
-                // Subscription Status Banners
-                subscriptionBanners
-
-                // Streak At Risk Warning (when applicable)
-                if gamificationService.streakAtRisk && gamificationService.currentStreak > 0 {
-                    StreakAtRiskBanner(
-                        onGenerateOutfit: {
-                            coordinator.switchTab(to: .styleMe)
-                        },
-                        onAddItem: {
-                            coordinator.present(.addItem)
-                        }
-                    )
-                    .padding(.horizontal, AppSpacing.pageMargin)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
-                        removal: .opacity
-                    ))
-                }
-
-                // Daily Challenges Card
-                if gamificationService.isLoading && gamificationService.dailyChallenges.isEmpty {
-                    DailyChallengesCardSkeleton()
-                        .padding(.horizontal, AppSpacing.pageMargin)
-                } else {
-                    DailyChallengesCard(
-                        onChallengeTapped: { challenge in
-                            handleChallengeTap(challenge)
-                        }
-                    )
-                    .padding(.horizontal, AppSpacing.pageMargin)
-                }
-
-                // Streak Calendar (7-day week view)
-                if gamificationService.isLoading && gamificationService.activityHistory.isEmpty {
-                    StreakCalendarSkeleton()
-                        .padding(.horizontal, AppSpacing.pageMargin)
-                } else {
-                    StreakCalendar()
-                        .padding(.horizontal, AppSpacing.pageMargin)
-                }
-
-                // HERO: Daily Outfit (THE MAIN EVENT)
+                // HERO: Daily Outfit - THE MAIN EVENT (above the fold)
                 dailyOutfitHero
+                    .progressiveReveal(delay: 0.05)
 
                 // Secondary action when pre-generated is ready
                 if outfitRepo.hasPreGeneratedReady {
@@ -86,6 +47,16 @@ struct HomeScreen: View {
                         }
                     }
                     .padding(.horizontal, AppSpacing.pageMargin)
+                }
+
+                // Streak Calendar (7-day week view) - compact inline
+                if gamificationService.isLoading && gamificationService.activityHistory.isEmpty {
+                    StreakCalendarSkeleton()
+                        .padding(.horizontal, AppSpacing.pageMargin)
+                } else {
+                    StreakCalendar()
+                        .padding(.horizontal, AppSpacing.pageMargin)
+                        .progressiveReveal(delay: 0.1)
                 }
 
                 // Quick Actions - Editorial Style
@@ -118,6 +89,20 @@ struct HomeScreen: View {
                 }
                 .padding(.horizontal, AppSpacing.pageMargin)
 
+                // Daily Challenges Card (collapsible, secondary)
+                if gamificationService.isLoading && gamificationService.dailyChallenges.isEmpty {
+                    DailyChallengesCardSkeleton()
+                        .padding(.horizontal, AppSpacing.pageMargin)
+                } else {
+                    DailyChallengesCard(
+                        onChallengeTapped: { challenge in
+                            handleChallengeTap(challenge)
+                        }
+                    )
+                    .padding(.horizontal, AppSpacing.pageMargin)
+                    .progressiveReveal(delay: 0.15)
+                }
+
                 // Wardrobe Insights
                 WardrobeInsightsSection(
                     insights: insights,
@@ -127,6 +112,26 @@ struct HomeScreen: View {
                     onItemTapped: { _ in coordinator.switchTab(to: .wardrobe) }
                 )
                 .padding(.horizontal, AppSpacing.pageMargin)
+
+                // Contextual banners (bottom of scroll)
+                subscriptionBanners
+
+                // Streak At Risk Warning (when applicable)
+                if gamificationService.streakAtRisk && gamificationService.currentStreak > 0 {
+                    StreakAtRiskBanner(
+                        onGenerateOutfit: {
+                            coordinator.switchTab(to: .styleMe)
+                        },
+                        onAddItem: {
+                            coordinator.present(.addItem)
+                        }
+                    )
+                    .padding(.horizontal, AppSpacing.pageMargin)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+                }
             }
             .padding(.vertical, AppSpacing.pageMargin)
         }
@@ -143,39 +148,39 @@ struct HomeScreen: View {
         .animation(.easeInOut(duration: 0.3), value: gamificationService.streakAtRisk)
     }
 
-    // MARK: - Header Section
+    // MARK: - Header Section (Compact)
 
     @ViewBuilder
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Clean greeting - no flame
+        HStack(alignment: .firstTextBaseline) {
+            // Greeting - tighter editorial
             Text(personalizedGreeting)
-                .font(.system(size: 32, weight: .bold, design: .serif))
+                .font(AppTypography.editorial(28, weight: .light))
                 .foregroundColor(AppColors.textPrimary)
-                .opacity(headerAppeared ? 1 : 0)
-                .offset(y: headerAppeared ? 0 : 10)
 
-            // Weather and location subheader - only show if weather exists
+            Spacer()
+
+            // Weather pill - inline with greeting
             if outfitRepo.preGeneratedWeather != nil || outfitRepo.currentWeather != nil {
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     Image(systemName: weatherIconName)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                     Text(weatherText)
-                    if !locationService.locationName.isEmpty {
-                        Text("·")
-                        Text(locationService.locationName)
-                    }
+                        .font(.system(size: 13, weight: .medium))
                 }
-                .font(.system(size: 14))
                 .foregroundColor(AppColors.textSecondary)
-                .opacity(headerAppeared ? 1 : 0)
-                .offset(y: headerAppeared ? 0 : 8)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(AppColors.backgroundSecondary)
+                .clipShape(Capsule())
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, AppSpacing.pageMargin)
+        .opacity(headerAppeared ? 1 : 0)
+        .offset(y: headerAppeared ? 0 : 8)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.5).delay(0.1)) {
+            withAnimation(.easeOut(duration: 0.35)) {
                 headerAppeared = true
             }
         }
@@ -254,7 +259,7 @@ struct HomeScreen: View {
 
         // Load all data in parallel
         await withTaskGroup(of: Void.self) { group in
-            group.addTask {
+            group.addTask { @MainActor in
                 insights = try? await StyleumAPI.shared.fetchWardrobeInsights()
             }
             group.addTask {
@@ -401,9 +406,7 @@ struct WardrobeInsightsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
             Text("INSIGHTS")
-                .font(AppTypography.kicker)
-                .foregroundColor(AppColors.brownLight)
-                .tracking(1)
+                .kickerStyle()
 
             if isLoading {
                 if hasItems {
@@ -610,12 +613,10 @@ struct EmptyOutfitHero: View {
 
             VStack(spacing: 10) {
                 Text("TODAY'S LOOK")
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(2)
-                    .foregroundColor(AppColors.brownLight)
+                    .kickerStyle()
 
                 Text(weatherCopy)
-                    .font(.system(size: 22, weight: .medium, design: .serif))
+                    .font(AppTypography.editorial(22, weight: .medium))
                     .foregroundColor(AppColors.textPrimary)
                     .multilineTextAlignment(.center)
             }
@@ -697,7 +698,7 @@ struct TodaysOutfitCard: View {
     }
 }
 
-// MARK: - Daily Outfit Hero Card (Editorial Design)
+// MARK: - Daily Outfit Hero Card (Editorial Design - Premium)
 struct DailyOutfitHeroCard: View {
     let outfits: [ScoredOutfit]
     let wardrobeItems: [WardrobeItem]
@@ -707,11 +708,9 @@ struct DailyOutfitHeroCard: View {
 
     /// Get hero image URL - try outfit.items first, fallback to wardrobeItems
     private var heroImageUrl: String? {
-        // First try: use outfit.items if available
         if let items = firstOutfit?.items, let firstItem = items.first {
             return firstItem.imageUrl
         }
-        // Fallback: find first wardrobe item by ID
         if let firstItemId = firstOutfit?.wardrobeItemIds.first,
            let wardrobeItem = wardrobeItems.first(where: { $0.id == firstItemId }) {
             return wardrobeItem.displayPhotoUrl
@@ -719,9 +718,24 @@ struct DailyOutfitHeroCard: View {
         return nil
     }
 
+    /// Get preview item URLs for the outfit strip
+    private var previewItemUrls: [String] {
+        guard let outfit = firstOutfit else { return [] }
+
+        // Try outfit.items first
+        if let items = outfit.items, !items.isEmpty {
+            return Array(items.prefix(4).compactMap { $0.imageUrl })
+        }
+
+        // Fallback to wardrobeItems lookup
+        return Array(outfit.wardrobeItemIds.prefix(4).compactMap { id in
+            wardrobeItems.first(where: { $0.id == id })?.displayPhotoUrl
+        })
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Hero image with gradient overlay
+            // Hero image with gradient overlay - DOMINANT
             ZStack(alignment: .bottomLeading) {
                 AsyncImage(url: URL(string: heroImageUrl ?? "")) { phase in
                     switch phase {
@@ -729,69 +743,123 @@ struct DailyOutfitHeroCard: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
+                            .transition(.opacity.combined(with: .scale(scale: 1.02)))
                     case .failure, .empty:
                         Rectangle()
                             .fill(AppColors.backgroundSecondary)
                             .overlay(
-                                Image(systemName: "hanger")
-                                    .font(.system(size: 40, weight: .ultraLight))
-                                    .foregroundColor(AppColors.textMuted)
+                                VStack(spacing: 12) {
+                                    Image(systemName: "hanger")
+                                        .font(.system(size: 48, weight: .ultraLight))
+                                    Text("Your look awaits")
+                                        .font(AppTypography.bodyMedium)
+                                }
+                                .foregroundColor(AppColors.textMuted)
                             )
                     @unknown default:
                         Rectangle()
                             .fill(AppColors.backgroundSecondary)
                     }
                 }
-                .frame(height: 280)
+                .frame(height: 400)
                 .clipped()
 
-                // Gradient overlay
+                // Premium gradient overlay - deeper, more editorial
                 LinearGradient(
-                    colors: [.clear, .black.opacity(0.75)],
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black.opacity(0.3), location: 0.5),
+                        .init(color: .black.opacity(0.85), location: 1)
+                    ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
 
                 // Text content overlay
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("TODAY'S LOOK")
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(2)
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(AppTypography.kicker)
+                        .kerning(AppTypography.trackingLoose)
+                        .foregroundColor(.white.opacity(0.9))
 
-                    Text(firstOutfit?.headline ?? "Today's Look")
-                        .font(.system(size: 26, weight: .bold, design: .serif))
+                    Text(firstOutfit?.headline ?? "Your Perfect Look")
+                        .font(AppTypography.editorial(28, weight: .bold))
                         .foregroundColor(.white)
                         .lineLimit(2)
 
                     Text("\(outfits.count) look\(outfits.count == 1 ? "" : "s") curated for you")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(.white.opacity(0.7))
+                        .font(AppTypography.bodyMedium)
+                        .foregroundColor(.white.opacity(0.75))
+
+                    // Outfit items preview strip
+                    if !previewItemUrls.isEmpty {
+                        HStack(spacing: -8) {
+                            ForEach(Array(previewItemUrls.enumerated()), id: \.offset) { index, url in
+                                AsyncImage(url: URL(string: url)) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                    default:
+                                        Circle()
+                                            .fill(AppColors.backgroundSecondary)
+                                    }
+                                }
+                                .frame(width: 44, height: 44)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(.white.opacity(0.3), lineWidth: 1.5))
+                                .zIndex(Double(previewItemUrls.count - index))
+                            }
+
+                            if previewItemUrls.count < (firstOutfit?.wardrobeItemIds.count ?? 0) {
+                                Text("+\((firstOutfit?.wardrobeItemIds.count ?? 0) - previewItemUrls.count)")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .frame(width: 44, height: 44)
+                                    .background(.white.opacity(0.15))
+                                    .clipShape(Circle())
+                                    .overlay(Circle().stroke(.white.opacity(0.3), lineWidth: 1.5))
+                            }
+                        }
+                        .padding(.top, 8)
+                    }
                 }
-                .padding(20)
+                .padding(24)
             }
 
-            // View button bar
-            Button(action: onViewTapped) {
+            // View button bar - refined
+            Button(action: {
+                HapticManager.shared.medium()
+                onViewTapped()
+            }) {
                 HStack {
                     Text("View Your Looks")
                         .font(.system(size: 16, weight: .semibold))
 
                     Spacer()
 
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .semibold))
+                    HStack(spacing: 4) {
+                        Text("Tap to explore")
+                            .font(.system(size: 13))
+                            .foregroundColor(AppColors.textSecondary)
+
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
                 }
                 .foregroundColor(AppColors.textPrimary)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 18)
                 .background(AppColors.background)
             }
             .buttonStyle(ScaleButtonStyle())
         }
         .background(AppColors.backgroundSecondary)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
+        .cornerRadius(AppSpacing.radiusXl)
+        .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+        .shadow(color: .black.opacity(0.08), radius: 16, y: 8)
+        .shadow(color: .black.opacity(0.04), radius: 32, y: 16)
         .padding(.horizontal, AppSpacing.pageMargin)
     }
 }

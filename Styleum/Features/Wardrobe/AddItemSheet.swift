@@ -149,73 +149,78 @@ struct AddItemSheet: View {
     }
 
     private func carouselItemView(index: Int, item: UploadItem) -> some View {
-        ScrollView {
-            VStack(spacing: AppSpacing.lg) {
-                // Image preview
-                Image(uiImage: item.image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxHeight: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusLg))
-                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+        // Bug Fix: Name field FIRST - always visible without scrolling
+        VStack(spacing: AppSpacing.md) {
+            // Name field prominently at top
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text("NAME")
+                    .font(AppTypography.kicker)
+                    .foregroundColor(AppColors.textMuted)
+                    .tracking(1)
 
-                // Name field
-                VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                    Text("NAME")
-                        .font(AppTypography.kicker)
-                        .foregroundColor(AppColors.textMuted)
-                        .tracking(1)
-
-                    TextField("Name (optional)", text: $uploadItems[index].name)
-                        .font(AppTypography.bodyLarge)
-                        .padding()
-                        .background(AppColors.inputBackground)
-                        .cornerRadius(AppSpacing.radiusMd)
-                }
-
-                // Category picker
-                VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                    Text("CATEGORY")
-                        .font(AppTypography.kicker)
-                        .foregroundColor(AppColors.textMuted)
-                        .tracking(1)
-
-                    Menu {
-                        ForEach(ClothingCategory.allCases) { category in
-                            Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    uploadItems[index].category = category
-                                }
-                                HapticManager.shared.selection()
-                            } label: {
-                                if uploadItems[index].category == category {
-                                    Label(category.displayName, systemImage: "checkmark")
-                                } else {
-                                    Text(category.displayName)
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            Image(symbol: uploadItems[index].category.iconSymbol)
-                                .font(.system(size: 18))
-                            Text(uploadItems[index].category.displayName)
-                                .font(AppTypography.bodyLarge)
-                            Spacer()
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(AppColors.textMuted)
-                        }
-                        .foregroundColor(AppColors.textPrimary)
-                        .padding()
-                        .background(AppColors.inputBackground)
-                        .cornerRadius(AppSpacing.radiusMd)
-                    }
-                }
+                TextField("Name (optional)", text: $uploadItems[index].name)
+                    .font(AppTypography.bodyLarge)
+                    .padding()
+                    .background(AppColors.inputBackground)
+                    .cornerRadius(AppSpacing.radiusMd)
             }
             .padding(.horizontal, AppSpacing.pageMargin)
-            .padding(.top, AppSpacing.sm)
+
+            // Scrollable content: image and category
+            ScrollView {
+                VStack(spacing: AppSpacing.lg) {
+                    // Image preview (slightly smaller to accommodate name field)
+                    Image(uiImage: item.image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusLg))
+                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+
+                    // Category picker
+                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                        Text("CATEGORY")
+                            .font(AppTypography.kicker)
+                            .foregroundColor(AppColors.textMuted)
+                            .tracking(1)
+
+                        Menu {
+                            ForEach(ClothingCategory.allCases) { category in
+                                Button {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        uploadItems[index].category = category
+                                    }
+                                    HapticManager.shared.selection()
+                                } label: {
+                                    if uploadItems[index].category == category {
+                                        Label(category.displayName, systemImage: "checkmark")
+                                    } else {
+                                        Text(category.displayName)
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Image(symbol: uploadItems[index].category.iconSymbol)
+                                    .font(.system(size: 18))
+                                Text(uploadItems[index].category.displayName)
+                                    .font(AppTypography.bodyLarge)
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(AppColors.textMuted)
+                            }
+                            .foregroundColor(AppColors.textPrimary)
+                            .padding()
+                            .background(AppColors.inputBackground)
+                            .cornerRadius(AppSpacing.radiusMd)
+                        }
+                    }
+                }
+                .padding(.horizontal, AppSpacing.pageMargin)
+            }
         }
+        .padding(.top, AppSpacing.sm)
     }
 
     private var bottomActionArea: some View {
