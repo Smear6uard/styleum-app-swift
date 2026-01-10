@@ -111,7 +111,15 @@ final class StyleumAPI {
         case 404:
             throw APIError.notFound
         case 429:
-            throw APIError.rateLimited
+            // Parse rate limit details from response
+            if let rateLimitInfo = try? decoder.decode(RateLimitResponse.self, from: data) {
+                throw APIError.rateLimited(
+                    message: rateLimitInfo.message ?? "Rate limit exceeded",
+                    remaining: rateLimitInfo.remaining ?? 0,
+                    limit: rateLimitInfo.limit
+                )
+            }
+            throw APIError.rateLimited(message: "Rate limit exceeded", remaining: 0, limit: nil)
         default:
             // Try to parse error message from response
             if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
@@ -204,7 +212,15 @@ final class StyleumAPI {
             }
             throw APIError.serverError(message: "Conflict")
         case 429:
-            throw APIError.rateLimited
+            // Parse rate limit details from response
+            if let rateLimitInfo = try? decoder.decode(RateLimitResponse.self, from: data) {
+                throw APIError.rateLimited(
+                    message: rateLimitInfo.message ?? "Rate limit exceeded",
+                    remaining: rateLimitInfo.remaining ?? 0,
+                    limit: rateLimitInfo.limit
+                )
+            }
+            throw APIError.rateLimited(message: "Rate limit exceeded", remaining: 0, limit: nil)
         default:
             if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
                 throw APIError.serverError(message: errorResponse.error ?? "Unknown error")
@@ -678,7 +694,7 @@ enum APIError: LocalizedError {
     case unauthorized
     case forbidden
     case notFound
-    case rateLimited
+    case rateLimited(message: String, remaining: Int, limit: Int?)
     case onboardingAlreadyComplete(version: Int?)
     case serverError(message: String)
     case decodingError(Error)
@@ -695,8 +711,8 @@ enum APIError: LocalizedError {
             return "You don't have permission to do that."
         case .notFound:
             return "We couldn't find what you're looking for."
-        case .rateLimited:
-            return "You're doing that too fast. Take a breather and try again."
+        case .rateLimited(let message, _, _):
+            return message
         case .onboardingAlreadyComplete:
             return "You've already completed setup."
         case .serverError(let message):
@@ -718,6 +734,13 @@ struct APIErrorResponse: Decodable {
     let message: String?
     let code: String?
     let onboardingVersion: Int?
+}
+
+struct RateLimitResponse: Decodable {
+    let error: String?
+    let message: String?
+    let remaining: Int?
+    let limit: Int?
 }
 
 // Note: GamificationStats is defined in GamificationService.swift

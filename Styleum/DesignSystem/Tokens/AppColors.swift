@@ -1,15 +1,16 @@
 import SwiftUI
 
 enum AppColors {
-    // Brand Accent (Slate) - LIMITED USE: selected states, progress, active nav
-    static let slate = Color(hex: "6F7C86")
-    static let slateDark = Color(hex: "3F474F")
-    static let slateLight = Color(hex: "9BA5AE")
-
-    // Warm Brown Accents - editorial, fashion-forward
+    // Warm Brown Accents - editorial, fashion-forward (primary brand accent)
     static let brownPrimary = Color(red: 0.18, green: 0.14, blue: 0.11)    // #2E241C
     static let brownSecondary = Color(red: 0.24, green: 0.20, blue: 0.16)  // #3D3329
     static let brownLight = Color(red: 0.35, green: 0.30, blue: 0.26)      // #594D42
+
+    // Slate aliases → Brown (backward compatibility)
+    // These now map to brown tones instead of gray-blue slate
+    static let slate = brownSecondary       // was #6F7C86
+    static let slateDark = brownPrimary     // was #3F474F
+    static let slateLight = brownLight      // was #9BA5AE
 
     // Primary
     static let black = Color(hex: "111111")

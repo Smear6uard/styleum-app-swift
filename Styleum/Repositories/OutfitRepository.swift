@@ -94,6 +94,9 @@ final class OutfitRepository {
     func generateFreshOutfits(preferences: StylePreferences? = nil) async {
         print("🌤️ [OutfitRepo] Generating FRESH outfits (uses credit)...")
 
+        // Clear any previous error before starting new generation
+        error = nil
+
         guard SupabaseManager.shared.currentUserId != nil else {
             print("🌤️ [OutfitRepo] No user ID, aborting")
             return

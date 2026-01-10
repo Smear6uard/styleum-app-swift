@@ -6,24 +6,28 @@ struct MainTabView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab content
-            TabView(selection: $coordinator.selectedTab) {
+            // Tab content - ZStack for instant switching (no lazy loading)
+            ZStack {
                 HomeTab(coordinator: coordinator)
-                    .tag(AppCoordinator.Tab.home)
+                    .opacity(coordinator.selectedTab == .home ? 1 : 0)
+                    .allowsHitTesting(coordinator.selectedTab == .home)
 
                 WardrobeTab(coordinator: coordinator)
-                    .tag(AppCoordinator.Tab.wardrobe)
+                    .opacity(coordinator.selectedTab == .wardrobe ? 1 : 0)
+                    .allowsHitTesting(coordinator.selectedTab == .wardrobe)
 
                 StyleMeTab(coordinator: coordinator)
-                    .tag(AppCoordinator.Tab.styleMe)
+                    .opacity(coordinator.selectedTab == .styleMe ? 1 : 0)
+                    .allowsHitTesting(coordinator.selectedTab == .styleMe)
 
                 AchievementsTab(coordinator: coordinator)
-                    .tag(AppCoordinator.Tab.achievements)
+                    .opacity(coordinator.selectedTab == .achievements ? 1 : 0)
+                    .allowsHitTesting(coordinator.selectedTab == .achievements)
 
                 ProfileTab(coordinator: coordinator)
-                    .tag(AppCoordinator.Tab.profile)
+                    .opacity(coordinator.selectedTab == .profile ? 1 : 0)
+                    .allowsHitTesting(coordinator.selectedTab == .profile)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
 
             // Custom tab bar
             TabBar(selectedTab: $coordinator.selectedTab)
@@ -74,7 +78,7 @@ struct MainTabView: View {
         case .aiProcessing:
             AIProcessingView()
         case .outfitResults:
-            OutfitResultsView()
+            OutfitResultsView(isInlineMode: false)  // Modal mode - uses dismiss()
         }
     }
 }

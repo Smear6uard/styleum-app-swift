@@ -144,22 +144,30 @@ struct SettingsScreen: View {
             Section("Support") {
                 ListRow(
                     title: "Help & FAQ",
-                    action: {}
+                    action: {
+                        openURL("https://styleum.xyz/faq")
+                    }
                 ) {
                     Image(symbol: .info)
                         .foregroundColor(AppColors.textSecondary)
                 } trailing: {
-                    EmptyView()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppColors.textMuted)
                 }
 
                 ListRow(
                     title: "Contact Us",
-                    action: {}
+                    action: {
+                        openURL("mailto:support@styleum.xyz")
+                    }
                 ) {
                     Image(symbol: .settings)
                         .foregroundColor(AppColors.textSecondary)
                 } trailing: {
-                    EmptyView()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppColors.textMuted)
                 }
             }
 
@@ -169,7 +177,9 @@ struct SettingsScreen: View {
                     showChevron: false,
                     destructive: true,
                     action: {
-                        // Sign out action
+                        Task {
+                            try? await AuthService.shared.signOut()
+                        }
                     }
                 ) {
                     EmptyView()

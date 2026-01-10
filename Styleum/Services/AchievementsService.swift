@@ -34,15 +34,21 @@ final class AchievementsService {
     // MARK: - Fetch Achievements
 
     func fetchAchievements() async {
-        guard SupabaseManager.shared.currentUserId != nil else { return }
+        print("[Achievements] fetchAchievements called")
+        guard SupabaseManager.shared.currentUserId != nil else {
+            print("[Achievements] No user ID - returning early")
+            return
+        }
 
         isLoading = true
         defer { isLoading = false }
 
         do {
             achievements = try await api.getAchievements()
+            print("[Achievements] Received \(achievements.count) achievements")
             self.error = nil
         } catch {
+            print("[Achievements] Error fetching: \(error)")
             self.error = error
         }
     }

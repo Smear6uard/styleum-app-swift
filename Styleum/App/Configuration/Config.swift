@@ -7,6 +7,6 @@ enum Config {
     static let googleClientID = "642816391624-9f84235tn3aimlhekvo0tcgteh7m5mp2.apps.googleusercontent.com"
 
     // Hono API Backend
-    // static let apiBaseURL = "https://styleum-api-production.up.railway.app"
-    static let apiBaseURL = "http://localhost:3001" // Local testing
+    static let apiBaseURL = "https://styleum-api-production.up.railway.app"
+    // static let apiBaseURL = "http://localhost:3001" // Local testing
 }

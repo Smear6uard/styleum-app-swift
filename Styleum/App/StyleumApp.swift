@@ -26,6 +26,7 @@ struct StyleumApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .preferredColorScheme(.light)  // Force light mode for MVP
                 .onOpenURL { url in
                     print("📱 Received URL: \(url)")
                     GIDSignIn.sharedInstance.handle(url)

@@ -155,20 +155,22 @@ struct HomeScreen: View {
                 .opacity(headerAppeared ? 1 : 0)
                 .offset(y: headerAppeared ? 0 : 10)
 
-            // Weather and location subheader
-            HStack(spacing: 6) {
-                Image(systemName: weatherIconName)
-                    .font(.system(size: 13, weight: .medium))
-                Text(weatherText)
-                if !locationService.locationName.isEmpty {
-                    Text("·")
-                    Text(locationService.locationName)
+            // Weather and location subheader - only show if weather exists
+            if outfitRepo.preGeneratedWeather != nil || outfitRepo.currentWeather != nil {
+                HStack(spacing: 6) {
+                    Image(systemName: weatherIconName)
+                        .font(.system(size: 13, weight: .medium))
+                    Text(weatherText)
+                    if !locationService.locationName.isEmpty {
+                        Text("·")
+                        Text(locationService.locationName)
+                    }
                 }
+                .font(.system(size: 14))
+                .foregroundColor(AppColors.textSecondary)
+                .opacity(headerAppeared ? 1 : 0)
+                .offset(y: headerAppeared ? 0 : 8)
             }
-            .font(.system(size: 14))
-            .foregroundColor(AppColors.textSecondary)
-            .opacity(headerAppeared ? 1 : 0)
-            .offset(y: headerAppeared ? 0 : 8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, AppSpacing.pageMargin)

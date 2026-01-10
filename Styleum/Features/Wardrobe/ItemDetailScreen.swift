@@ -437,11 +437,18 @@ struct ItemEditSheet: View {
 
         // Debounce: wait 500ms before saving to avoid excessive API calls
         saveNameTask = Task {
-            try? await Task.sleep(for: .milliseconds(500))
-            guard !Task.isCancelled else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled else { return }
 
-            let updates = WardrobeItemUpdate(itemName: name.isEmpty ? nil : name)
-            try? await wardrobeService.updateItem(id: itemId, updates: updates)
+                let updates = WardrobeItemUpdate(itemName: name.isEmpty ? nil : name)
+                try await wardrobeService.updateItem(id: itemId, updates: updates)
+                print("[ItemEdit] Name saved: \(name)")
+            } catch {
+                if !(error is CancellationError) {
+                    print("[ItemEdit] Failed to save name: \(error)")
+                }
+            }
         }
     }
 

@@ -2,6 +2,9 @@ import SwiftUI
 import UIKit
 
 struct OutfitResultsView: View {
+    /// When true, view is displayed inline (StyleMeScreen). When false, displayed as modal (HomeScreen fullScreenCover).
+    var isInlineMode: Bool = false
+
     @Environment(\.dismiss) private var dismiss
     @Environment(AppCoordinator.self) private var coordinator
     @State private var wardrobeService = WardrobeService.shared
@@ -232,7 +235,12 @@ struct OutfitResultsView: View {
         HStack {
             Button {
                 HapticManager.shared.light()
-                dismiss()
+                if isInlineMode {
+                    // Clear outfits to return to default StyleMe state
+                    outfitRepo.clearSessionOutfits()
+                } else {
+                    dismiss()
+                }
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .medium))
@@ -540,7 +548,11 @@ struct OutfitResultsView: View {
         if currentIndex < outfits.count - 1 {
             withAnimation { currentIndex += 1 }
         } else {
-            dismiss()
+            if isInlineMode {
+                outfitRepo.clearSessionOutfits()
+            } else {
+                dismiss()
+            }
         }
     }
 
@@ -580,7 +592,11 @@ struct OutfitResultsView: View {
                 showXPToast = true
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    dismiss()
+                    if isInlineMode {
+                        outfitRepo.clearSessionOutfits()
+                    } else {
+                        dismiss()
+                    }
                 }
             }
         }
@@ -598,7 +614,11 @@ struct OutfitResultsView: View {
                 showXPToast = true
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    dismiss()
+                    if isInlineMode {
+                        outfitRepo.clearSessionOutfits()
+                    } else {
+                        dismiss()
+                    }
                 }
             }
         }
