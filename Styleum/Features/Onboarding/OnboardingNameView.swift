@@ -24,7 +24,7 @@ struct OnboardingNameView: View {
                 .foregroundColor(AppColors.textSecondary)
                 .padding(.top, AppSpacing.sm)
 
-            // Text field
+            // Text field (max 50 characters for first name)
             TextField("First name", text: $name)
                 .font(AppTypography.bodyLarge)
                 .padding(AppSpacing.md)
@@ -34,6 +34,11 @@ struct OnboardingNameView: View {
                 .focused($isFocused)
                 .textContentType(.givenName)
                 .autocorrectionDisabled()
+                .onChange(of: name) { _, newValue in
+                    if newValue.count > 50 {
+                        name = String(newValue.prefix(50))
+                    }
+                }
 
             Spacer()
 

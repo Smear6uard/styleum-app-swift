@@ -6,6 +6,7 @@ struct StyleMeSkeletonView: View {
     @State private var logoScale: CGFloat = 1.0
     @State private var currentPhase: GenerationPhase = .analyzing
     @State private var phaseTimer: Timer?
+    @State private var dotTimer: Timer?
     @State private var dotIndex: Int = 0
 
     // Generation phases with contextual messaging
@@ -176,7 +177,7 @@ struct StyleMeSkeletonView: View {
         }
 
         // Dot animation (cycles 0, 1, 2, 0, 1, 2...)
-        Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+        dotTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
             withAnimation(.easeInOut(duration: 0.2)) {
                 dotIndex = (dotIndex + 1) % 4
             }
@@ -203,6 +204,8 @@ struct StyleMeSkeletonView: View {
     private func stopAnimations() {
         phaseTimer?.invalidate()
         phaseTimer = nil
+        dotTimer?.invalidate()
+        dotTimer = nil
     }
 }
 

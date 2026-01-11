@@ -294,6 +294,7 @@ private struct UnlockedFeatureRow: View {
 
 private struct ProConfettiOverlay: View {
     @State private var confettiPieces: [ProConfettiPiece] = []
+    @State private var confettiTimer: Timer?
 
     private let colors: [Color] = [
         Color(hex: "D4AF37"),  // Gold
@@ -318,6 +319,10 @@ private struct ProConfettiOverlay: View {
             .onAppear {
                 startConfetti(in: geo.size)
             }
+            .onDisappear {
+                confettiTimer?.invalidate()
+                confettiTimer = nil
+            }
         }
         .allowsHitTesting(false)
     }
@@ -329,7 +334,7 @@ private struct ProConfettiOverlay: View {
         }
 
         // Create continuous stream
-        Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
+        confettiTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
             if confettiPieces.count > 100 {
                 confettiPieces.removeFirst(10)
             }

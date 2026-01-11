@@ -1,18 +1,21 @@
 import SwiftUI
 import Auth
+import UIKit
 
 struct ProfileScreen: View {
     @Environment(AppCoordinator.self) var coordinator
-    @State private var profileService = ProfileService.shared
-    @State private var wardrobeService = WardrobeService.shared
-    @State private var achievementsService = AchievementsService.shared
-    @State private var gamificationService = GamificationService.shared
-    @State private var authService = AuthService.shared
-    @State private var locationService = LocationService.shared
+    private let profileService = ProfileService.shared
+    private let wardrobeService = WardrobeService.shared
+    private let achievementsService = AchievementsService.shared
+    private let gamificationService = GamificationService.shared
+    private let authService = AuthService.shared
+    private let locationService = LocationService.shared
     @State private var showEditUsername = false
     @State private var editingUsername = ""
     @State private var showSignOutConfirmation = false
     @State private var isSigningOut = false
+    @State private var isLoadingShare = false
+    @State private var showShareError = false
 
     var body: some View {
         ScrollView {
@@ -67,6 +70,7 @@ struct ProfileScreen: View {
                             .font(.system(size: 12, weight: .medium))
                         Text(locationService.locationName.isEmpty ? "Location unavailable" : locationService.locationName)
                             .font(AppTypography.bodyMedium)
+                            .lineLimit(1)
                     }
                     .foregroundColor(AppColors.textSecondary)
                 }
@@ -109,20 +113,30 @@ struct ProfileScreen: View {
 
                     Button {
                         HapticManager.shared.medium()
-                        // Share
+                        Task {
+                            await shareReferralLink()
+                        }
                     } label: {
-                        Text("Send them Styleum")
-                            .font(AppTypography.labelLarge)
-                            .foregroundColor(AppColors.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(AppColors.background)
-                            .cornerRadius(AppSpacing.radiusMd)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-                                    .stroke(AppColors.border, lineWidth: 1)
-                            )
+                        HStack(spacing: 8) {
+                            if isLoadingShare {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(AppColors.textPrimary)
+                            }
+                            Text("Send them Styleum")
+                                .font(AppTypography.labelLarge)
+                                .foregroundColor(AppColors.textPrimary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(AppColors.background)
+                        .cornerRadius(AppSpacing.radiusMd)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+                                .stroke(AppColors.border, lineWidth: 1)
+                        )
                     }
+                    .disabled(isLoadingShare)
 
                     Text("You'll both get a free month")
                         .font(AppTypography.bodySmall)
@@ -189,6 +203,11 @@ struct ProfileScreen: View {
         } message: {
             Text("Your wardrobe will be waiting when you return.")
         }
+        .alert("Couldn't Load Referral", isPresented: $showShareError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Please try again in a moment.")
+        }
         .task {
             await profileService.fetchProfile()
             await achievementsService.fetchAchievements()
@@ -215,6 +234,61 @@ struct ProfileScreen: View {
         } catch {
             HapticManager.shared.error()
             isSigningOut = false
+        }
+    }
+
+    private func shareReferralLink() async {
+        isLoadingShare = true
+        defer { isLoadingShare = false }
+
+        let referralService = ReferralService.shared
+
+        // Fetch referral info if not already loaded
+        if referralService.shareUrl == nil {
+            do {
+                try await referralService.fetchReferralInfo()
+            } catch {
+                print("❌ [Profile] Failed to fetch referral info: \(error)")
+                HapticManager.shared.error()
+                showShareError = true
+                return
+            }
+        }
+
+        // Use the same share message as ReferralView for consistency
+        let shareMessage = referralService.getShareMessage()
+
+        let shareItems: [Any] = [shareMessage]
+
+        await MainActor.run {
+            guard let windowScene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }),
+                let keyWindow = windowScene.windows.first(where: { $0.isKeyWindow }),
+                let rootVC = keyWindow.rootViewController else {
+                return
+            }
+
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+
+            let activityVC = UIActivityViewController(activityItems: shareItems, applicationActivities: nil)
+
+            // iPad support
+            if let popover = activityVC.popoverPresentationController {
+                popover.sourceView = topVC.view
+                popover.sourceRect = CGRect(
+                    x: topVC.view.bounds.midX,
+                    y: topVC.view.bounds.midY,
+                    width: 0,
+                    height: 0
+                )
+                popover.permittedArrowDirections = []
+            }
+
+            topVC.present(activityVC, animated: true)
         }
     }
 

@@ -45,7 +45,7 @@ final class PushNotificationService {
 
             if granted {
                 print("🔔 [PUSH] ✅ Authorization granted")
-                await registerForRemoteNotifications()
+                registerForRemoteNotifications()
             } else {
                 print("🔔 [PUSH] ❌ Authorization denied")
             }

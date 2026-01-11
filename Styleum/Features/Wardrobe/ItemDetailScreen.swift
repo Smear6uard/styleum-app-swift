@@ -4,9 +4,12 @@ struct ItemDetailScreen: View {
     let itemId: String
     @Environment(\.dismiss) var dismiss
     @Environment(AppCoordinator.self) var coordinator
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
     @State private var showDeleteConfirm = false
     @State private var showEditSheet = false
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage = ""
+    @State private var isDeleting = false
 
     // Hero entrance animation state
     @State private var heroAppeared = false
@@ -157,14 +160,27 @@ struct ItemDetailScreen: View {
         .confirmationDialog("Delete Item", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 HapticManager.shared.warning()
+                isDeleting = true
                 Task {
-                    try? await wardrobeService.deleteItem(id: itemId)
-                    dismiss()
+                    do {
+                        try await wardrobeService.deleteItem(id: itemId)
+                        dismiss()
+                    } catch {
+                        isDeleting = false
+                        deleteErrorMessage = error.localizedDescription
+                        showDeleteError = true
+                        HapticManager.shared.error()
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This item will be permanently removed from your wardrobe.")
+        }
+        .alert("Couldn't Delete Item", isPresented: $showDeleteError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteErrorMessage.isEmpty ? "Please try again." : deleteErrorMessage)
         }
         .sheet(isPresented: $showEditSheet) {
             ItemEditSheet(itemId: itemId)
@@ -200,7 +216,7 @@ struct ItemDetailScreen: View {
 struct ItemEditSheet: View {
     let itemId: String
     @Environment(\.dismiss) var dismiss
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
 
     // Edit state
     @State private var editedName: String = ""
@@ -230,7 +246,12 @@ struct ItemEditSheet: View {
                     HStack {
                         TextField("Name", text: $editedName)
                             .onChange(of: editedName) { _, newValue in
-                                saveName(newValue)
+                                // Limit to 100 characters
+                                if newValue.count > 100 {
+                                    editedName = String(newValue.prefix(100))
+                                } else {
+                                    saveName(newValue)
+                                }
                             }
 
                         // Save status indicator
@@ -497,7 +518,7 @@ struct ItemEditSheet: View {
         // Debounce: wait 500ms before saving to avoid excessive API calls
         saveNameTask = Task {
             do {
-                try await Task.sleep(for: .milliseconds(500))
+                try await Task.sleep(for: .milliseconds(1000))
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run { isSaving = true }
@@ -532,12 +553,19 @@ struct ItemEditSheet: View {
             } catch {
                 await MainActor.run {
                     isSaving = false
-                    if !(error is CancellationError) {
-                        saveErrorMessage = "Couldn't save the name. Please try again."
-                        showSaveError = true
-                        HapticManager.shared.error()
-                        print("[ItemEdit] Failed to save name: \(error)")
+                    // Skip showing error for cancellation and rate limiting
+                    if error is CancellationError {
+                        return
                     }
+                    // Check for rate limiting - don't show error, will retry on next keystroke
+                    if let apiError = error as? APIError, case .rateLimited = apiError {
+                        print("[ItemEdit] Rate limited, will retry")
+                        return
+                    }
+                    saveErrorMessage = "Couldn't save the name. Please try again."
+                    showSaveError = true
+                    HapticManager.shared.error()
+                    print("[ItemEdit] Failed to save name: \(error)")
                 }
             }
         }
@@ -563,7 +591,7 @@ struct CategoryPickerSheet: View {
     let itemId: String
     let currentCategory: ClothingCategory?
     @Environment(\.dismiss) var dismiss
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
     @State private var selectedCategory: ClothingCategory?
 
     var body: some View {
@@ -614,7 +642,7 @@ struct ColorPickerSheet: View {
     let currentColor: String?
     let currentColorHex: String?
     @Environment(\.dismiss) var dismiss
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
 
     private let commonColors = [
         ("Black", "#000000"),
@@ -680,7 +708,7 @@ struct StylePickerSheet: View {
     let itemId: String
     let currentStyles: [String]
     @Environment(\.dismiss) var dismiss
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
     @State private var selectedStyles: Set<String>
 
     private let commonStyles = [
@@ -742,7 +770,7 @@ struct MaterialPickerSheet: View {
     let itemId: String
     let currentMaterial: String?
     @Environment(\.dismiss) var dismiss
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
     @State private var selectedMaterial: Material?
 
     var body: some View {
@@ -795,7 +823,7 @@ struct FormalityPickerSheet: View {
     let itemId: String
     let currentFormality: Int?
     @Environment(\.dismiss) var dismiss
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
     @State private var selectedFormality: Int?
 
     private let formalityOptions = [
@@ -853,7 +881,7 @@ struct OccasionsPickerSheet: View {
     let itemId: String
     let currentOccasions: [String]
     @Environment(\.dismiss) var dismiss
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
     @State private var selectedOccasions: Set<String>
 
     private let commonOccasions = [
@@ -915,7 +943,7 @@ struct SeasonsPickerSheet: View {
     let itemId: String
     let currentSeasons: [String]
     @Environment(\.dismiss) var dismiss
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
     @State private var selectedSeasons: Set<String>
 
     private let seasons = ["Spring", "Summer", "Fall", "Winter"]

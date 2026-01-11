@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Central service for all gamification state and logic.
 /// This is the single source of truth for XP, levels, streaks, daily challenges, and activity tracking.
+@MainActor
 @Observable
 final class GamificationService {
     static let shared = GamificationService()
@@ -658,6 +659,16 @@ struct DayActivity: Identifiable, Codable {
         case outfitsWorn = "outfits_worn"
         case itemsAdded = "items_added"
         case challengesCompleted = "challenges_completed"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        date = try container.decode(Date.self, forKey: .date)
+        hasActivity = try container.decodeIfPresent(Bool.self, forKey: .hasActivity) ?? false
+        xpEarned = try container.decodeIfPresent(Int.self, forKey: .xpEarned) ?? 0
+        outfitsWorn = try container.decodeIfPresent(Int.self, forKey: .outfitsWorn) ?? 0
+        itemsAdded = try container.decodeIfPresent(Int.self, forKey: .itemsAdded) ?? 0
+        challengesCompleted = try container.decodeIfPresent(Int.self, forKey: .challengesCompleted) ?? 0
     }
 }
 

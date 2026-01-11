@@ -145,8 +145,9 @@ struct NotificationSettingsScreen: View {
     }
 
     private func savePreferences() async {
+        // Guard against double-submit from rapid taps
+        guard !isSaving else { return }
         isSaving = true
-        defer { isSaving = false }
 
         let timeString = NotificationPreferences.timeString(from: selectedHour)
         let timezone = TimeZone.current.identifier
@@ -157,13 +158,27 @@ struct NotificationSettingsScreen: View {
                 time: timeString,
                 timezone: timezone
             )
-            profileService.currentProfile = updatedProfile
 
-            HapticManager.shared.success()
-            dismiss()
+            // Update state on MainActor
+            await MainActor.run {
+                profileService.currentProfile = updatedProfile
+                isSaving = false
+            }
+
+            // Small delay to ensure UI updates complete
+            try? await Task.sleep(nanoseconds: 50_000_000)
+
+            // Dismiss on MainActor
+            await MainActor.run {
+                HapticManager.shared.success()
+                dismiss()
+            }
         } catch {
             print("❌ Failed to save notification preferences: \(error)")
-            HapticManager.shared.error()
+            await MainActor.run {
+                isSaving = false
+                HapticManager.shared.error()
+            }
         }
     }
 }

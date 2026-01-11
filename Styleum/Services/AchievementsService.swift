@@ -5,6 +5,7 @@ extension Notification.Name {
     static let achievementUnlocked = Notification.Name("achievementUnlocked")
 }
 
+@MainActor
 @Observable
 final class AchievementsService {
     static let shared = AchievementsService()

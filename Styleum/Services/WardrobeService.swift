@@ -6,6 +6,7 @@ import SwiftUI
 import UIKit
 #endif
 
+@MainActor
 @Observable
 final class WardrobeService {
     static let shared = WardrobeService()
@@ -108,18 +109,18 @@ final class WardrobeService {
         print("Public URL: \(publicURL.absoluteString)")
 
         // 4. Call API to create item (replaces DB insert + AI analysis trigger)
-        let createdItem = try await api.uploadItem(
+        let result = try await api.uploadItem(
             imageUrl: publicURL.absoluteString,
             category: category.rawValue,
             name: name
         )
 
-        print("Item created with ID: \(createdItem.id)")
+        print("Item created with ID: \(result.item.id)")
 
         // 5. Add to local array with animation support
         let isFirstItem = items.isEmpty
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-            items.insert(createdItem, at: 0)
+            items.insert(result.item, at: 0)
         }
 
         HapticManager.shared.success()
@@ -133,13 +134,24 @@ final class WardrobeService {
             NotificationCenter.default.post(name: .firstWardrobeItem, object: nil)
         }
 
+        // 8. Referral completion celebration (when referred friend adds first item)
+        if result.referralCompleted {
+            let daysEarned = result.referralDaysEarned ?? 7
+            print("📨 [Referral] Referral completed! Earned \(daysEarned) days")
+            NotificationCenter.default.post(
+                name: .referralCompleted,
+                object: nil,
+                userInfo: ["daysEarned": daysEarned]
+            )
+        }
+
         // Bug Fix: Refresh achievements to update "Add wardrobe item" progress
         // Backend recalculates achievement progress based on actual item count
         Task {
             await AchievementsService.shared.fetchAchievements()
         }
 
-        return createdItem
+        return result.item
     }
 
     // Helper to resize image

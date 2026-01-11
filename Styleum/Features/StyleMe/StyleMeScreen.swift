@@ -2,10 +2,10 @@ import SwiftUI
 
 struct StyleMeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
-    @State private var wardrobeService = WardrobeService.shared
-    @State private var outfitRepo = OutfitRepository.shared
-    @State private var api = StyleumAPI.shared
-    @State private var tierManager = TierManager.shared
+    private let wardrobeService = WardrobeService.shared
+    private let outfitRepo = OutfitRepository.shared
+    private let api = StyleumAPI.shared
+    private let tierManager = TierManager.shared
     @State private var usageLimits: UsageLimits?
 
     // Progress bar state
@@ -84,6 +84,10 @@ struct StyleMeScreen: View {
             withAnimation {
                 hasAppeared = true
             }
+        }
+        .onDisappear {
+            progressTimer?.invalidate()
+            progressTimer = nil
         }
         .fullScreenCover(isPresented: $showEntranceCeremony) {
             StyleMeEntranceCeremony(isComplete: $entranceCeremonyComplete)

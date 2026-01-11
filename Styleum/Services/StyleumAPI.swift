@@ -250,7 +250,7 @@ final class StyleumAPI {
         return response.item
     }
 
-    func uploadItem(imageUrl: String, category: String? = nil, name: String? = nil) async throws -> WardrobeItem {
+    func uploadItem(imageUrl: String, category: String? = nil, name: String? = nil) async throws -> UploadItemResult {
         struct UploadItemRequest: Encodable {
             let imageUrl: String
             let category: String?
@@ -262,12 +262,30 @@ final class StyleumAPI {
                 case itemName = "item_name"
             }
         }
-        let response: ItemResponse = try await request(
+
+        struct UploadItemResponse: Decodable {
+            let item: WardrobeItem
+            let referralCompleted: Bool?
+            let referralDaysEarned: Int?
+
+            enum CodingKeys: String, CodingKey {
+                case item
+                case referralCompleted = "referral_completed"
+                case referralDaysEarned = "referral_days_earned"
+            }
+        }
+
+        let response: UploadItemResponse = try await request(
             endpoint: "/items",
             method: "POST",
             body: UploadItemRequest(imageUrl: imageUrl, category: category, itemName: name)
         )
-        return response.item
+
+        return UploadItemResult(
+            item: response.item,
+            referralCompleted: response.referralCompleted ?? false,
+            referralDaysEarned: response.referralDaysEarned
+        )
     }
 
     func uploadItemsBatch(imageUrls: [String]) async throws -> [WardrobeItem] {
@@ -284,7 +302,7 @@ final class StyleumAPI {
     func updateItem(id: String, updates: WardrobeItemUpdate) async throws -> WardrobeItem {
         try await request(
             endpoint: "/items/\(id)",
-            method: "PUT",
+            method: "PATCH",
             body: updates
         )
     }
@@ -308,23 +326,19 @@ final class StyleumAPI {
     // MARK: - Outfits
 
     /// Fetches pre-generated outfits (created by 4AM cron job)
+    /// Returns nil if no outfits available, throws on network/API errors
     func getPreGeneratedOutfits() async throws -> GenerateOutfitsResult? {
         print("🌐 [API] GET /outfits - Fetching pre-generated outfits...")
 
-        do {
-            let result: GenerateOutfitsResult = try await request(endpoint: "/outfits")
+        let result: GenerateOutfitsResult = try await request(endpoint: "/outfits")
 
-            if result.outfits.isEmpty {
-                print("🌐 [API] No pre-generated outfits available")
-                return nil
-            }
-
-            print("🌐 [API] ✅ Got \(result.outfits.count) pre-generated outfits (source: \(result.source ?? "unknown"))")
-            return result
-        } catch {
-            print("🌐 [API] Pre-generated fetch failed: \(error)")
+        if result.outfits.isEmpty {
+            print("🌐 [API] No pre-generated outfits available")
             return nil
         }
+
+        print("🌐 [API] ✅ Got \(result.outfits.count) pre-generated outfits (source: \(result.source ?? "unknown"))")
+        return result
     }
 
     func generateOutfits(
@@ -478,7 +492,7 @@ final class StyleumAPI {
         }
 
         do {
-            let _: Profile = try await request(
+            try await requestNoContent(
                 endpoint: "/profile",
                 method: "PUT",
                 body: LocationUpdate(locationLat: latitude, locationLng: longitude)
@@ -684,6 +698,82 @@ final class StyleumAPI {
             throw error
         }
     }
+
+    // MARK: - Referrals
+
+    /// Get user's referral code and stats
+    func getReferralInfo() async throws -> ReferralInfoResponse {
+        try await request(endpoint: "/referrals")
+    }
+
+    /// Apply a referral code
+    func applyReferralCode(_ code: String) async throws -> ApplyReferralResponse {
+        struct ApplyRequest: Encodable {
+            let code: String
+        }
+        return try await request(
+            endpoint: "/referrals/apply",
+            method: "POST",
+            body: ApplyRequest(code: code)
+        )
+    }
+
+    /// Validate a referral code (check if valid before applying)
+    func validateReferralCode(_ code: String) async throws -> ValidateReferralResponse {
+        try await request(endpoint: "/referrals/validate/\(code)")
+    }
+}
+
+// MARK: - Referral Response Models
+
+struct ReferralInfoResponse: Decodable {
+    let code: String
+    let shareUrl: String
+    let stats: ReferralStatsResponse
+
+    enum CodingKeys: String, CodingKey {
+        case code
+        case shareUrl = "share_url"
+        case stats
+    }
+}
+
+struct ReferralStatsResponse: Decodable {
+    let totalReferrals: Int
+    let completedReferrals: Int
+    let pendingReferrals: Int
+    let totalDaysEarned: Int
+
+    enum CodingKeys: String, CodingKey {
+        case totalReferrals = "total_referrals"
+        case completedReferrals = "completed_referrals"
+        case pendingReferrals = "pending_referrals"
+        case totalDaysEarned = "total_days_earned"
+    }
+}
+
+struct ApplyReferralResponse: Decodable {
+    let success: Bool
+    let daysEarned: Int?
+    let error: String?
+    let code: String?  // Error code like "already_applied", "invalid_code", "own_code"
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case daysEarned = "days_earned"
+        case error
+        case code
+    }
+}
+
+struct ValidateReferralResponse: Decodable {
+    let valid: Bool
+    let referrerName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case valid
+        case referrerName = "referrer_name"
+    }
 }
 
 // MARK: - API Error
@@ -854,6 +944,13 @@ struct StudioModeResult: Decodable {
     let success: Bool
     let photoUrlClean: String?
     let error: String?
+}
+
+/// Result of uploading a new wardrobe item
+struct UploadItemResult {
+    let item: WardrobeItem
+    let referralCompleted: Bool
+    let referralDaysEarned: Int?
 }
 
 // MARK: - AnyEncodable Helper

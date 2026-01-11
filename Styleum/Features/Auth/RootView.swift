@@ -71,6 +71,7 @@ struct RootView: View {
                     .dailyGoalCelebration()
                     .firstMilestoneCelebration()
                     .streakProtection()
+                    .referralCelebration()
                     .xpToastOverlay()
                     .onAppear {
                         print("🏠 [ROOT] 📱 SHOWING: MainTabView")
@@ -131,6 +132,11 @@ struct RootView: View {
         .onChange(of: profileService.currentProfile?.onboardingVersion) { oldValue, newValue in
             print("🏠 [ROOT] ⚡️ ONBOARDING VERSION CHANGED: \(oldValue.map { String($0) } ?? "nil") -> \(newValue.map { String($0) } ?? "nil")")
             print("🏠 [ROOT] ⚡️ shouldShowOnboarding is now: \(shouldShowOnboarding)")
+
+            // Check for pending referral code when onboarding completes
+            if let version = newValue, version >= 2 {
+                applyPendingReferralCodeIfNeeded()
+            }
         }
         .onChange(of: authService.isAuthenticated) { wasAuthenticated, isAuthenticated in
             print("🏠 [ROOT] ⚡️ AUTH STATE CHANGED: \(wasAuthenticated) -> \(isAuthenticated)")
@@ -156,6 +162,33 @@ struct RootView: View {
     }
 
     // MARK: - Helpers
+
+    /// Applies any pending referral code from deep links after onboarding completes
+    private func applyPendingReferralCodeIfNeeded() {
+        guard let pendingCode = ReferralService.shared.getPendingCode() else {
+            return
+        }
+
+        print("📨 [Referral] Found pending code after onboarding: \(pendingCode)")
+
+        Task {
+            do {
+                let result = try await ReferralService.shared.applyCode(pendingCode)
+                ReferralService.shared.clearPendingCode()
+
+                switch result {
+                case .success(let daysEarned):
+                    print("📨 [Referral] Successfully applied pending code, earned \(daysEarned) days")
+                    // Show celebration is handled elsewhere (e.g., via notification or direct UI)
+                default:
+                    print("📨 [Referral] Pending code application result: \(result)")
+                }
+            } catch {
+                print("📨 [Referral] Failed to apply pending code: \(error)")
+                ReferralService.shared.clearPendingCode()
+            }
+        }
+    }
 
     private func saveUserLocationForPreGeneration() async {
         if let location = await LocationService.shared.getCurrentLocation() {

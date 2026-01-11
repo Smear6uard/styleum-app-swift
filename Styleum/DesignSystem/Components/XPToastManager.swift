@@ -89,7 +89,7 @@ final class XPToastManager {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.currentToast = nil
             // Small delay before next toast
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 self?.processQueue()
             }
         }

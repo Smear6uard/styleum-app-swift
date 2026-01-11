@@ -16,9 +16,13 @@ final class AppCoordinator {
     /// Item pre-selected from wardrobe for "Style this piece" flow
     var preSelectedWardrobeItem: WardrobeItem?
 
+    /// Notification observer tokens for cleanup
+    // Note: nonisolated(unsafe) warning is expected - required for deinit access
+    private nonisolated(unsafe) var notificationObservers: [Any] = []
+
     init() {
         // Observe deep link notifications from push notifications
-        NotificationCenter.default.addObserver(
+        let dailyOutfitObserver = NotificationCenter.default.addObserver(
             forName: .navigateToDailyOutfit,
             object: nil,
             queue: .main
@@ -28,9 +32,10 @@ final class AppCoordinator {
                 coordinator.handleDailyOutfitDeepLink()
             }
         }
+        notificationObservers.append(dailyOutfitObserver)
 
         // Observe quick action: Style Me
-        NotificationCenter.default.addObserver(
+        let styleMeObserver = NotificationCenter.default.addObserver(
             forName: .navigateToStyleMe,
             object: nil,
             queue: .main
@@ -40,9 +45,10 @@ final class AppCoordinator {
                 coordinator.switchTab(to: .styleMe)
             }
         }
+        notificationObservers.append(styleMeObserver)
 
         // Observe quick action: Add Item
-        NotificationCenter.default.addObserver(
+        let addItemObserver = NotificationCenter.default.addObserver(
             forName: .openAddItem,
             object: nil,
             queue: .main
@@ -55,9 +61,10 @@ final class AppCoordinator {
                 coordinator.present(.addItem)
             }
         }
+        notificationObservers.append(addItemObserver)
 
         // Observe quick action: My Wardrobe
-        NotificationCenter.default.addObserver(
+        let wardrobeObserver = NotificationCenter.default.addObserver(
             forName: .navigateToWardrobe,
             object: nil,
             queue: .main
@@ -66,6 +73,14 @@ final class AppCoordinator {
             Task { @MainActor in
                 coordinator.switchTab(to: .wardrobe)
             }
+        }
+        notificationObservers.append(wardrobeObserver)
+    }
+
+    deinit {
+        // Remove all notification observers to prevent memory leaks
+        for observer in notificationObservers {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
 
@@ -109,10 +124,10 @@ final class AppCoordinator {
         case itemDetail(itemId: String)
         case outfitDetail(outfitId: String)
         case settings
-        case editProfile
         case subscription
         case deleteAccount
         case notificationSettings
+        case referral
     }
 
     // MARK: - Sheet Destinations
@@ -123,6 +138,8 @@ final class AppCoordinator {
         case achievementDetail(achievementId: String)
         case createOutfit(itemIds: [String])
         case tierOnboarding
+        case applyReferralCode
+        case referralCelebration(daysEarned: Int)
 
         var id: String {
             switch self {
@@ -132,6 +149,8 @@ final class AppCoordinator {
             case .achievementDetail(let id): return "achievementDetail_\(id)"
             case .createOutfit: return "createOutfit"
             case .tierOnboarding: return "tierOnboarding"
+            case .applyReferralCode: return "applyReferralCode"
+            case .referralCelebration(let days): return "referralCelebration_\(days)"
             }
         }
     }

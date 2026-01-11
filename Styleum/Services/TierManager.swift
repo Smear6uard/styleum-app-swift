@@ -1,6 +1,7 @@
 import Foundation
 
 /// Manages user tier status and usage limits
+@MainActor
 @Observable
 final class TierManager {
     static let shared = TierManager()

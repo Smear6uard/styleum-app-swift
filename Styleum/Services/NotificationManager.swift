@@ -29,8 +29,8 @@ final class NotificationManager {
             self.isShowing = true
 
             // Auto-dismiss after delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-                self.dismiss()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+                self?.dismiss()
             }
         }
     }

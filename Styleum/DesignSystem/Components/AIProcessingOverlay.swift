@@ -13,6 +13,7 @@ struct AIProcessingOverlay: View {
     @State private var currentMessageIndex = 0
     @State private var pulseScale: CGFloat = 0.95
     @State private var rotation: Double = 0
+    @State private var messageTimer: Timer?
 
     var body: some View {
         ZStack {
@@ -73,9 +74,14 @@ struct AIProcessingOverlay: View {
         .onAppear {
             startAnimations()
         }
+        .onDisappear {
+            stopAnimations()
+        }
         .onChange(of: isVisible) { _, newValue in
             if newValue {
                 startAnimations()
+            } else {
+                stopAnimations()
             }
         }
     }
@@ -91,16 +97,18 @@ struct AIProcessingOverlay: View {
             pulseScale = 1.05
         }
 
-        // Message rotation
-        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { timer in
-            if !isVisible {
-                timer.invalidate()
-                return
-            }
+        // Message rotation - store timer for cleanup
+        messageTimer?.invalidate()
+        messageTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
             withAnimation {
                 currentMessageIndex = (currentMessageIndex + 1) % messages.count
             }
         }
+    }
+
+    private func stopAnimations() {
+        messageTimer?.invalidate()
+        messageTimer = nil
     }
 }
 

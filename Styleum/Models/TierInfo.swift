@@ -60,6 +60,38 @@ struct TierLimits: Codable {
         case hasExport = "has_export"
     }
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        maxWardrobeItems = try container.decodeIfPresent(Int.self, forKey: .maxWardrobeItems) ?? 30
+        dailyOutfits = try container.decodeIfPresent(Int.self, forKey: .dailyOutfits) ?? 2
+        monthlyStyleMeCredits = try container.decodeIfPresent(Int.self, forKey: .monthlyStyleMeCredits) ?? 5
+        outfitHistoryDays = try container.decodeIfPresent(Int.self, forKey: .outfitHistoryDays) ?? 7
+        streakFreezesPerMonth = try container.decodeIfPresent(Int.self, forKey: .streakFreezesPerMonth) ?? 1
+        hasAnalytics = try container.decodeIfPresent(Bool.self, forKey: .hasAnalytics) ?? false
+        hasOccasionStyling = try container.decodeIfPresent(Bool.self, forKey: .hasOccasionStyling) ?? false
+        hasExport = try container.decodeIfPresent(Bool.self, forKey: .hasExport) ?? false
+    }
+
+    init(
+        maxWardrobeItems: Int,
+        dailyOutfits: Int,
+        monthlyStyleMeCredits: Int,
+        outfitHistoryDays: Int,
+        streakFreezesPerMonth: Int,
+        hasAnalytics: Bool,
+        hasOccasionStyling: Bool,
+        hasExport: Bool
+    ) {
+        self.maxWardrobeItems = maxWardrobeItems
+        self.dailyOutfits = dailyOutfits
+        self.monthlyStyleMeCredits = monthlyStyleMeCredits
+        self.outfitHistoryDays = outfitHistoryDays
+        self.streakFreezesPerMonth = streakFreezesPerMonth
+        self.hasAnalytics = hasAnalytics
+        self.hasOccasionStyling = hasOccasionStyling
+        self.hasExport = hasExport
+    }
+
     /// Free tier defaults
     static let free = TierLimits(
         maxWardrobeItems: 30,

@@ -272,6 +272,7 @@ private struct StreakParticle: Identifiable {
 
 private struct StreakConfettiOverlay: View {
     @State private var confettiPieces: [StreakConfettiPiece] = []
+    @State private var confettiTimer: Timer?
 
     private let colors: [Color] = [
         Color(hex: "FF6B35"),  // Orange
@@ -296,6 +297,10 @@ private struct StreakConfettiOverlay: View {
             .onAppear {
                 startConfetti(in: geo.size)
             }
+            .onDisappear {
+                confettiTimer?.invalidate()
+                confettiTimer = nil
+            }
         }
         .allowsHitTesting(false)
     }
@@ -307,7 +312,7 @@ private struct StreakConfettiOverlay: View {
         }
 
         // Create continuous stream
-        Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
+        confettiTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
             if confettiPieces.count > 100 {
                 confettiPieces.removeFirst(10)
             }

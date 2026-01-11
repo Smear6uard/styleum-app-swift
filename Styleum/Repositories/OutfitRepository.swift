@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 
+@MainActor
 @Observable
 final class OutfitRepository {
     static let shared = OutfitRepository()
@@ -9,11 +10,13 @@ final class OutfitRepository {
     private let wardrobeService = WardrobeService.shared
     private let locationService = LocationService.shared
 
-    // Track first outfit milestone
+    // Track first outfit milestone (namespaced key to avoid collisions)
+    private static let firstOutfitKey = "com.sameerstudios.Styleum.hasGeneratedFirstOutfit"
+
     @ObservationIgnored
     private var hasGeneratedFirstOutfit: Bool {
-        get { UserDefaults.standard.bool(forKey: "hasGeneratedFirstOutfit") }
-        set { UserDefaults.standard.set(newValue, forKey: "hasGeneratedFirstOutfit") }
+        get { UserDefaults.standard.bool(forKey: Self.firstOutfitKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.firstOutfitKey) }
     }
 
     // MARK: - Pre-Generated Outfits (Free, shown on Home)
@@ -64,20 +67,26 @@ final class OutfitRepository {
 
         print("🌤️ [OutfitRepo] Loading pre-generated outfits (FREE)...")
 
-        if let preGen = try? await api.getPreGeneratedOutfits(), !preGen.outfits.isEmpty {
-            print("🌤️ [OutfitRepo] ✅ API returned \(preGen.outfits.count) outfits")
-            print("🌤️ [OutfitRepo] Source: \(preGen.source ?? "unknown")")
-            if let first = preGen.outfits.first {
-                print("🌤️ [OutfitRepo] First outfit headline: \(first.headline ?? "none")")
-                print("🌤️ [OutfitRepo] First outfit has \(first.wardrobeItemIds.count) items")
+        do {
+            if let preGen = try await api.getPreGeneratedOutfits(), !preGen.outfits.isEmpty {
+                print("🌤️ [OutfitRepo] ✅ API returned \(preGen.outfits.count) outfits")
+                print("🌤️ [OutfitRepo] Source: \(preGen.source ?? "unknown")")
+                if let first = preGen.outfits.first {
+                    print("🌤️ [OutfitRepo] First outfit headline: \(first.headline ?? "none")")
+                    print("🌤️ [OutfitRepo] First outfit has \(first.wardrobeItemIds.count) items")
+                }
+                preGeneratedOutfits = preGen.outfits
+                preGeneratedWeather = preGen.weather
+                preGenCacheTimestamp = Date()
+                outfitSource = "pre_generated"
+                error = nil  // Clear any previous error
+                print("🌤️ [OutfitRepo] ✅ Stored \(preGeneratedOutfits.count) pre-generated outfits")
+            } else {
+                print("🌤️ [OutfitRepo] No pre-generated outfits available")
             }
-            preGeneratedOutfits = preGen.outfits
-            preGeneratedWeather = preGen.weather
-            preGenCacheTimestamp = Date()
-            outfitSource = "pre_generated"
-            print("🌤️ [OutfitRepo] ✅ Stored \(preGeneratedOutfits.count) pre-generated outfits")
-        } else {
-            print("🌤️ [OutfitRepo] No pre-generated outfits available")
+        } catch {
+            print("🌤️ [OutfitRepo] ❌ Failed to load pre-generated outfits: \(error)")
+            self.error = error  // Set error so UI can show it
         }
     }
 

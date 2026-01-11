@@ -61,6 +61,12 @@ struct MainTabView: View {
             CreateOutfitSheet(itemIds: itemIds)
         case .tierOnboarding:
             TierOnboardingSheet()
+        case .applyReferralCode:
+            ApplyCodeSheet()
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        case .referralCelebration(let daysEarned):
+            ReferralCelebrationView(daysEarned: daysEarned)
         }
     }
 
@@ -155,14 +161,14 @@ func destinationView(for destination: AppCoordinator.Destination) -> some View {
         OutfitDetailScreen(outfitId: outfitId)
     case .settings:
         SettingsScreen()
-    case .editProfile:
-        EditProfileScreen()
     case .subscription:
         ProUpgradeView(trigger: .manual)
     case .deleteAccount:
         DeleteAccountView()
     case .notificationSettings:
         NotificationSettingsScreen()
+    case .referral:
+        ReferralView()
     }
 }
 

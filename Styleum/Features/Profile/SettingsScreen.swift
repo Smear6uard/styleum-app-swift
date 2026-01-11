@@ -89,19 +89,22 @@ struct SettingsScreen: View {
                 }
             }
 
-            Section("Account") {
+            Section("Referral") {
                 ListRow(
-                    title: "Edit Profile",
+                    title: "Invite Friends",
+                    subtitle: "Get free Pro time",
                     action: {
-                        coordinator.navigate(to: .editProfile)
+                        coordinator.navigate(to: .referral)
                     }
                 ) {
-                    Image(symbol: .profile)
+                    Image(systemName: "person.badge.plus")
                         .foregroundColor(AppColors.textSecondary)
                 } trailing: {
                     EmptyView()
                 }
+            }
 
+            Section("Account") {
                 ListRow(
                     title: "Delete Account",
                     action: {

@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 @Observable
 final class LocationService: NSObject {
@@ -16,7 +17,29 @@ final class LocationService: NSObject {
     private var lastLocationUpdate: Date?
     private let cacheExpiry: TimeInterval = 15 * 60 // 15 minutes
 
+    // Continuation with thread-safe access to prevent race conditions
+    private let continuationLock = NSLock()
     private var locationContinuation: CheckedContinuation<CLLocationCoordinate2D?, Never>?
+
+    // Timeout task - stored so it can be cancelled when location arrives
+    private var locationTimeoutTask: Task<Void, Never>?
+
+    /// Thread-safe setter for continuation
+    private func setContinuation(_ continuation: CheckedContinuation<CLLocationCoordinate2D?, Never>) {
+        continuationLock.lock()
+        locationContinuation = continuation
+        continuationLock.unlock()
+    }
+
+    /// Thread-safe resume - atomically clears and resumes to prevent double-resume crashes
+    private func resumeContinuationIfNeeded(with result: CLLocationCoordinate2D?) {
+        continuationLock.lock()
+        let continuation = locationContinuation
+        locationContinuation = nil
+        continuationLock.unlock()
+
+        continuation?.resume(returning: result)
+    }
 
     private override init() {
         super.init()
@@ -66,26 +89,46 @@ final class LocationService: NSObject {
 
         // Request location
         return await withCheckedContinuation { continuation in
-            locationContinuation = continuation
+            setContinuation(continuation)
             manager.requestLocation()
 
-            // Timeout after 10 seconds
-            Task {
+            // Timeout after 10 seconds - store task so it can be cancelled
+            locationTimeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(10))
-                if locationContinuation != nil {
-                    print("📍 [Location] Timeout after 10s")
-                    locationContinuation?.resume(returning: nil)
-                    locationContinuation = nil
-                }
+                // Check if task was cancelled (location arrived) before timing out
+                guard !Task.isCancelled else { return }
+                guard let self else { return }
+                print("📍 [Location] Timeout after 10s")
+                self.resumeContinuationIfNeeded(with: nil)
             }
         }
     }
 
     // MARK: - Reverse Geocode
-    // Note: reverseGeocodeLocation is deprecated in iOS 26 but the new MapKit API
-    // isn't fully available yet. Update when iOS 26 SDK is released.
 
     private func reverseGeocode(_ location: CLLocation) async {
+        // Use MapKit reverse geocoding for iOS 26+, fall back to CLGeocoder for older versions
+        #if compiler(>=6.0)
+        if #available(iOS 26.0, *) {
+            await reverseGeocodeWithMapKit(location)
+        } else {
+            await reverseGeocodeWithCLGeocoder(location)
+        }
+        #else
+        await reverseGeocodeWithCLGeocoder(location)
+        #endif
+    }
+
+    /// Modern reverse geocoding using MapKit (iOS 26+)
+    /// TODO: Update to use MKReverseGeocodingRequest when available
+    @available(iOS 26.0, *)
+    private func reverseGeocodeWithMapKit(_ location: CLLocation) async {
+        // MKReverseGeocodingRequest is not yet available, use CLGeocoder for now
+        await reverseGeocodeWithCLGeocoder(location)
+    }
+
+    /// Legacy reverse geocoding using CLGeocoder (deprecated in iOS 26)
+    private func reverseGeocodeWithCLGeocoder(_ location: CLLocation) async {
         do {
             let placemarks = try await geocoder.reverseGeocodeLocation(location)
             if let placemark = placemarks.first {
@@ -94,7 +137,7 @@ final class LocationService: NSObject {
                 }
             }
         } catch {
-            print("📍 [Location] Reverse geocode failed: \(error)")
+            print("📍 [Location] CLGeocoder reverse geocode failed: \(error)")
         }
     }
 }
@@ -116,9 +159,12 @@ extension LocationService: CLLocationManagerDelegate {
         currentLocation = location.coordinate
         lastLocationUpdate = Date()
 
-        // Resume continuation if waiting
-        locationContinuation?.resume(returning: location.coordinate)
-        locationContinuation = nil
+        // Cancel timeout task since we got the location
+        locationTimeoutTask?.cancel()
+        locationTimeoutTask = nil
+
+        // Resume continuation if waiting (thread-safe)
+        resumeContinuationIfNeeded(with: location.coordinate)
 
         // Reverse geocode in background
         Task {
@@ -129,8 +175,11 @@ extension LocationService: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("📍 [Location] Failed with error: \(error.localizedDescription)")
 
-        // Resume with nil on error
-        locationContinuation?.resume(returning: nil)
-        locationContinuation = nil
+        // Cancel timeout task
+        locationTimeoutTask?.cancel()
+        locationTimeoutTask = nil
+
+        // Resume with nil on error (thread-safe)
+        resumeContinuationIfNeeded(with: nil)
     }
 }

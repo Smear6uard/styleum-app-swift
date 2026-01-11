@@ -429,6 +429,7 @@ struct AddItemSheet: View {
         guard currentIndex < uploadItems.count else { return }
 
         let item = uploadItems[currentIndex]
+        let itemIndex = currentIndex  // Capture index before it changes
         uploadingIds.insert(item.id)
         uploadError = nil
         HapticManager.shared.light()
@@ -445,8 +446,9 @@ struct AddItemSheet: View {
                 HapticManager.shared.success()
             } catch {
                 failedIds.insert(item.id)
+                let itemName = item.name.isEmpty ? "Item \(itemIndex + 1)" : item.name
                 await MainActor.run {
-                    uploadError = "Failed to save item"
+                    uploadError = "Failed to save \(itemName)"
                 }
                 HapticManager.shared.error()
             }

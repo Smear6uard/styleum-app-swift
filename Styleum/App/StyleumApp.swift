@@ -29,9 +29,41 @@ struct StyleumApp: App {
                 .preferredColorScheme(.light)  // Force light mode for MVP
                 .onOpenURL { url in
                     print("📱 Received URL: \(url)")
-                    GIDSignIn.sharedInstance.handle(url)
+
+                    // Handle Google Sign-In
+                    if GIDSignIn.sharedInstance.handle(url) {
+                        return
+                    }
+
+                    // Handle referral deep links
+                    if let code = Self.parseReferralCode(from: url) {
+                        ReferralService.shared.storePendingCode(code)
+                        print("📨 [Referral] Stored referral code from deep link: \(code)")
+                    }
                 }
         }
+    }
+
+    // MARK: - Referral Deep Link Parsing
+
+    /// Parses a referral code from a deep link URL
+    /// Supports: styleum://referral?code=XXX and https://styleum.app/r/XXX
+    private static func parseReferralCode(from url: URL) -> String? {
+        // Handle styleum://referral?code=XXX
+        if url.scheme == "styleum" && url.host == "referral" {
+            return URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "code" })?.value
+        }
+
+        // Handle https://styleum.app/r/XXX
+        if url.host == "styleum.app" && url.pathComponents.contains("r") {
+            if let index = url.pathComponents.firstIndex(of: "r"),
+               index + 1 < url.pathComponents.count {
+                return url.pathComponents[index + 1]
+            }
+        }
+
+        return nil
     }
 }
 

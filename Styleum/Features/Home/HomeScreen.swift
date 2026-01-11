@@ -2,12 +2,12 @@ import SwiftUI
 
 struct HomeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
-    @State private var wardrobeService = WardrobeService.shared
-    @State private var profileService = ProfileService.shared
-    @State private var gamificationService = GamificationService.shared
-    @State private var outfitRepo = OutfitRepository.shared
-    @State private var locationService = LocationService.shared
-    @State private var tierManager = TierManager.shared
+    private let wardrobeService = WardrobeService.shared
+    private let profileService = ProfileService.shared
+    private let gamificationService = GamificationService.shared
+    private let outfitRepo = OutfitRepository.shared
+    private let locationService = LocationService.shared
+    private let tierManager = TierManager.shared
     @State private var insights: WardrobeInsights?
     @State private var isLoadingInsights = true
     @State private var headerAppeared = false
@@ -652,7 +652,9 @@ struct EmptyOutfitHero: View {
 // MARK: - Today's Outfit Card
 struct TodaysOutfitCard: View {
     let outfit: ScoredOutfit
-    @State private var wardrobeService = WardrobeService.shared
+    private let wardrobeService = WardrobeService.shared
+    @State private var showWearError = false
+    @State private var errorMessage = ""
 
     var body: some View {
         VStack(spacing: AppSpacing.md) {
@@ -679,7 +681,14 @@ struct TodaysOutfitCard: View {
 
             Button {
                 Task {
-                    try? await OutfitRepository.shared.markAsWorn(outfit)
+                    do {
+                        try await OutfitRepository.shared.markAsWorn(outfit)
+                        HapticManager.shared.success()
+                    } catch {
+                        errorMessage = error.localizedDescription
+                        showWearError = true
+                        HapticManager.shared.error()
+                    }
                 }
             } label: {
                 Text("Wear This Today")
@@ -695,6 +704,11 @@ struct TodaysOutfitCard: View {
         .padding(AppSpacing.lg)
         .background(AppColors.backgroundSecondary)
         .cornerRadius(AppSpacing.radiusLg)
+        .alert("Couldn't Save", isPresented: $showWearError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage.isEmpty ? "Please try again." : errorMessage)
+        }
     }
 }
 
