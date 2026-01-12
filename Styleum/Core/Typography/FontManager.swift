@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 import CoreText
 
 /// Handles registration of custom fonts from asset catalog data sets
@@ -72,6 +74,7 @@ enum FontManager {
         }
     }
 
+    #if canImport(UIKit)
     /// Debug: Lists all available font families (useful for finding exact font names)
     static func listAvailableFonts() {
         for family in UIFont.familyNames.sorted() {
@@ -81,4 +84,5 @@ enum FontManager {
             }
         }
     }
+    #endif
 }

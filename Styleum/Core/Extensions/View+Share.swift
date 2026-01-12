@@ -1,4 +1,5 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
 
 // MARK: - View Extension for Sharing
@@ -47,3 +48,4 @@ extension UIApplication {
         return topVC
     }
 }
+#endif

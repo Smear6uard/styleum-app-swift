@@ -115,6 +115,8 @@ struct WardrobeScreen: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(ScaleButtonStyle())
+                    .accessibilityLabel(isSearching ? "Close search" : "Search wardrobe")
+                    .accessibilityHint("Filter items by name, brand, or color")
 
                     // Sort menu
                     Menu {
@@ -139,6 +141,8 @@ struct WardrobeScreen: View {
                             .background(AppColors.backgroundSecondary)
                             .clipShape(Circle())
                     }
+                    .accessibilityLabel("Sort wardrobe")
+                    .accessibilityHint("Currently sorted by \(sortOption.rawValue)")
 
                     // Add button (gated by tier)
                     Button {
@@ -157,6 +161,8 @@ struct WardrobeScreen: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(ScaleButtonStyle())
+                    .accessibilityLabel("Add item")
+                    .accessibilityHint("Add a new clothing item to your wardrobe")
                 }
             }
             .padding(.horizontal, AppSpacing.pageMargin)

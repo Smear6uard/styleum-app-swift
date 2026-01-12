@@ -15,6 +15,7 @@ struct LoginScreen: View {
                 Image(systemName: "hanger")
                     .font(.system(size: 36, weight: .light))
                     .foregroundColor(AppColors.textMuted.opacity(0.5))
+                    .accessibilityHidden(true) // Decorative image
 
                 // Wordmark
                 Text("Styleum")

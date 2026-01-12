@@ -220,7 +220,7 @@ struct ItemEditSheet: View {
 
     // Edit state
     @State private var editedName: String = ""
-    @State private var saveNameTask: Task<Void, Never>?
+    @State private var originalName: String = ""  // Track original to detect actual changes
     // Save feedback states
     @State private var isSaving = false
     @State private var saveSuccess = false
@@ -246,12 +246,14 @@ struct ItemEditSheet: View {
                     HStack {
                         TextField("Name", text: $editedName)
                             .onChange(of: editedName) { _, newValue in
-                                // Limit to 100 characters
+                                // Limit to 100 characters only
                                 if newValue.count > 100 {
                                     editedName = String(newValue.prefix(100))
-                                } else {
-                                    saveName(newValue)
                                 }
+                            }
+                            .onSubmit {
+                                // Save when user presses Return key
+                                saveName()
                             }
 
                         // Save status indicator
@@ -461,6 +463,7 @@ struct ItemEditSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
+                        saveName()
                         dismiss()
                     }
                     .fontWeight(.semibold)
@@ -468,7 +471,9 @@ struct ItemEditSheet: View {
             }
         }
         .onAppear {
-            editedName = item?.itemName ?? ""
+            let name = item?.itemName ?? ""
+            editedName = name
+            originalName = name
         }
         .sheet(isPresented: $showCategoryPicker) {
             CategoryPickerSheet(itemId: itemId, currentCategory: item?.category)
@@ -493,7 +498,7 @@ struct ItemEditSheet: View {
         }
         .alert("Save Failed", isPresented: $showSaveError) {
             Button("Retry") {
-                saveName(editedName)
+                saveName()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -501,70 +506,51 @@ struct ItemEditSheet: View {
         }
     }
 
-    private func saveName(_ name: String) {
-        // Cancel any pending save task
-        saveNameTask?.cancel()
-        saveSuccess = false
+    private func saveName() {
+        let trimmedName = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedOriginal = originalName.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Trim whitespace for validation
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Validate: if not empty, require at least 2 characters
-        if !trimmedName.isEmpty && trimmedName.count < 2 {
-            // Don't show error yet, user might still be typing
+        // Skip if name hasn't actually changed
+        if trimmedName == trimmedOriginal {
             return
         }
 
-        // Debounce: wait 500ms before saving to avoid excessive API calls
-        saveNameTask = Task {
+        // Validate: require at least 2 characters if not empty
+        if !trimmedName.isEmpty && trimmedName.count < 2 {
+            saveErrorMessage = "Name must be at least 2 characters"
+            showSaveError = true
+            return
+        }
+
+        // Save in background
+        Task {
+            await MainActor.run { isSaving = true }
+
             do {
-                try await Task.sleep(for: .milliseconds(1000))
-                guard !Task.isCancelled else { return }
-
-                await MainActor.run { isSaving = true }
-
-                // Use trimmed name, or nil if empty (will use default display)
                 let updates = WardrobeItemUpdate(itemName: trimmedName.isEmpty ? nil : trimmedName)
                 try await wardrobeService.updateItem(id: itemId, updates: updates)
 
-                // Note: updateItem() already updates local array - no need to fetchItems()
-
                 await MainActor.run {
                     isSaving = false
+                    originalName = trimmedName  // Update baseline
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         saveSuccess = true
                     }
                     HapticManager.shared.success()
 
-                    // Verify the change persisted
-                    if let updatedItem = wardrobeService.items.first(where: { $0.id == itemId }) {
-                        print("[ItemEdit] Verified: name is now '\(updatedItem.itemName ?? "nil")'")
-                    }
-
                     // Reset success indicator after delay
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        withAnimation {
-                            saveSuccess = false
-                        }
+                        withAnimation { saveSuccess = false }
                     }
                 }
-                print("[ItemEdit] Name saved: '\(trimmedName)'")
             } catch {
                 await MainActor.run {
                     isSaving = false
-                    // Skip showing error for cancellation and rate limiting
-                    if error is CancellationError {
-                        return
+                    if !(error is CancellationError) {
+                        saveErrorMessage = "Couldn't save the name. Please try again."
+                        showSaveError = true
+                        HapticManager.shared.error()
                     }
-                    // Check for rate limiting - don't show error, will retry on next keystroke
-                    if let apiError = error as? APIError, case .rateLimited = apiError {
-                        print("[ItemEdit] Rate limited, will retry")
-                        return
-                    }
-                    saveErrorMessage = "Couldn't save the name. Please try again."
-                    showSaveError = true
-                    HapticManager.shared.error()
-                    print("[ItemEdit] Failed to save name: \(error)")
                 }
             }
         }

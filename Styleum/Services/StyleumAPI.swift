@@ -114,12 +114,13 @@ final class StyleumAPI {
             // Parse rate limit details from response
             if let rateLimitInfo = try? decoder.decode(RateLimitResponse.self, from: data) {
                 throw APIError.rateLimited(
-                    message: rateLimitInfo.message ?? "Rate limit exceeded",
+                    message: rateLimitInfo.message ?? rateLimitInfo.error ?? "Rate limit exceeded",
                     remaining: rateLimitInfo.remaining ?? 0,
-                    limit: rateLimitInfo.limit
+                    limit: rateLimitInfo.limit,
+                    dailyInfo: rateLimitInfo.daily
                 )
             }
-            throw APIError.rateLimited(message: "Rate limit exceeded", remaining: 0, limit: nil)
+            throw APIError.rateLimited(message: "Rate limit exceeded", remaining: 0, limit: nil, dailyInfo: nil)
         default:
             // Try to parse error message from response
             if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
@@ -215,12 +216,13 @@ final class StyleumAPI {
             // Parse rate limit details from response
             if let rateLimitInfo = try? decoder.decode(RateLimitResponse.self, from: data) {
                 throw APIError.rateLimited(
-                    message: rateLimitInfo.message ?? "Rate limit exceeded",
+                    message: rateLimitInfo.message ?? rateLimitInfo.error ?? "Rate limit exceeded",
                     remaining: rateLimitInfo.remaining ?? 0,
-                    limit: rateLimitInfo.limit
+                    limit: rateLimitInfo.limit,
+                    dailyInfo: rateLimitInfo.daily
                 )
             }
-            throw APIError.rateLimited(message: "Rate limit exceeded", remaining: 0, limit: nil)
+            throw APIError.rateLimited(message: "Rate limit exceeded", remaining: 0, limit: nil, dailyInfo: nil)
         default:
             if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
                 throw APIError.serverError(message: errorResponse.error ?? "Unknown error")
@@ -299,8 +301,8 @@ final class StyleumAPI {
         )
     }
 
-    func updateItem(id: String, updates: WardrobeItemUpdate) async throws -> WardrobeItem {
-        try await request(
+    func updateItem(id: String, updates: WardrobeItemUpdate) async throws {
+        try await requestNoContent(
             endpoint: "/items/\(id)",
             method: "PATCH",
             body: updates
@@ -784,7 +786,7 @@ enum APIError: LocalizedError {
     case unauthorized
     case forbidden
     case notFound
-    case rateLimited(message: String, remaining: Int, limit: Int?)
+    case rateLimited(message: String, remaining: Int, limit: Int?, dailyInfo: DailyLimitInfo?)
     case onboardingAlreadyComplete(version: Int?)
     case serverError(message: String)
     case decodingError(Error)
@@ -801,7 +803,7 @@ enum APIError: LocalizedError {
             return "You don't have permission to do that."
         case .notFound:
             return "We couldn't find what you're looking for."
-        case .rateLimited(let message, _, _):
+        case .rateLimited(let message, _, _, _):
             return message
         case .onboardingAlreadyComplete:
             return "You've already completed setup."
@@ -831,6 +833,13 @@ struct RateLimitResponse: Decodable {
     let message: String?
     let remaining: Int?
     let limit: Int?
+    let daily: DailyLimitInfo?
+}
+
+struct DailyLimitInfo: Decodable {
+    let used: Int
+    let limit: Int
+    let resetsAt: Date
 }
 
 // Note: GamificationStats is defined in GamificationService.swift

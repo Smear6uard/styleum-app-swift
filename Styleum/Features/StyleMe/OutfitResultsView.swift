@@ -190,6 +190,12 @@ struct OutfitResultsView: View {
             isSaved = false
             HapticManager.shared.selection()
         }
+        .onChange(of: outfits.count) { oldCount, newCount in
+            // Reset carousel index when outfits are regenerated to prevent index out of bounds
+            if newCount > 0 && currentIndex >= newCount {
+                currentIndex = 0
+            }
+        }
     }
 
     // MARK: - Outfit Card (Full-Screen Editorial Grid)
@@ -465,39 +471,46 @@ struct OutfitResultsView: View {
                     .lineSpacing(4)
             }
 
-            // Styling tip
+            // Styling tip - editorial design
             if let tip = outfit.stylingTip, !tip.isEmpty {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "lightbulb.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.yellow)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("STYLING TIP")
+                        .font(.system(size: 10, weight: .medium))
+                        .tracking(1.2)
+                        .foregroundColor(Color(hex: "94A3B8"))
 
                     Text(tip)
                         .font(.system(size: 14))
-                        .foregroundColor(AppColors.textSecondary)
-                        .italic()
+                        .foregroundColor(.black)
                 }
-                .padding(14)
+                .padding(.top, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(hex: "FFFBEB"))
-                .cornerRadius(12)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color(hex: "E2E8F0"))
+                        .frame(height: 1)
+                }
             }
 
-            // Color harmony (NEW - was available but not displayed)
+            // Color harmony - editorial design
             if let harmony = outfit.colorHarmony, !harmony.isEmpty {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "paintpalette.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.blue)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("COLOR PALETTE")
+                        .font(.system(size: 10, weight: .medium))
+                        .tracking(1.2)
+                        .foregroundColor(Color(hex: "94A3B8"))
 
                     Text(harmony)
                         .font(.system(size: 14))
-                        .foregroundColor(AppColors.textSecondary)
+                        .foregroundColor(.black)
                 }
-                .padding(14)
+                .padding(.top, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(hex: "EBF5FF"))
-                .cornerRadius(12)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color(hex: "E2E8F0"))
+                        .frame(height: 1)
+                }
             }
         }
     }
@@ -595,6 +608,8 @@ struct OutfitResultsView: View {
                     .background(.ultraThinMaterial)
                     .clipShape(Circle())
             }
+            .accessibilityLabel("Close")
+            .accessibilityHint(isInlineMode ? "Returns to Style Me screen" : "Dismisses outfit view")
 
             Spacer()
 
@@ -627,6 +642,8 @@ struct OutfitResultsView: View {
                     .clipShape(Circle())
                     .symbolEffect(.bounce, value: isSaved)
             }
+            .accessibilityLabel(isSaved ? "Unlike outfit" : "Like outfit")
+            .accessibilityHint("Double tap to \(isSaved ? "remove from" : "add to") your liked outfits")
         }
         .padding(.horizontal, 20)
         .padding(.top, 54)

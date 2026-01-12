@@ -194,11 +194,24 @@ final class WardrobeService {
         isLoading = true
         defer { isLoading = false }
 
-        let updatedItem = try await api.updateItem(id: id, updates: updates)
+        // API returns 200 on success, no need to decode response
+        try await api.updateItem(id: id, updates: updates)
 
-        // Update local array
+        // Apply update locally since we know what we sent
         if let index = items.firstIndex(where: { $0.id == id }) {
-            items[index] = updatedItem
+            var item = items[index]
+            if let name = updates.itemName { item.itemName = name }
+            if let timesWorn = updates.timesWorn { item.timesWorn = timesWorn }
+            if let lastWorn = updates.lastWorn { item.lastWorn = lastWorn }
+            if let tags = updates.tags { item.tags = tags }
+            if let primaryColor = updates.primaryColor { item.primaryColor = primaryColor }
+            if let isFavorite = updates.isFavorite { item.isFavorite = isFavorite }
+            if let category = updates.category { item.category = ClothingCategory(rawValue: category) }
+            if let styleVibes = updates.styleVibes { item.styleVibes = styleVibes }
+            if let material = updates.material { item.material = material }
+            if let formality = updates.formality { item.formality = formality }
+            if let occasions = updates.occasions { item.occasions = occasions }
+            items[index] = item
         }
 
         HapticManager.shared.light()

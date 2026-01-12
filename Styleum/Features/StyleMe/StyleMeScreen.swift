@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct StyleMeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
@@ -85,6 +88,15 @@ struct StyleMeScreen: View {
                 hasAppeared = true
             }
         }
+        #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Refresh tier info when app returns from background to prevent stale credits
+            Task {
+                await tierManager.refresh()
+                await fetchLimits()
+            }
+        }
+        #endif
         .onDisappear {
             progressTimer?.invalidate()
             progressTimer = nil
@@ -205,15 +217,24 @@ struct StyleMeScreen: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(AppColors.textPrimary)
+                        .background(isLoading ? AppColors.textMuted : AppColors.textPrimary)
                         .cornerRadius(12)
                 }
+                .disabled(isLoading)
                 .padding(.horizontal, 24)
+                .accessibilityLabel("Style Me")
+                .accessibilityHint("Generates a personalized outfit suggestion based on your wardrobe and today's weather")
 
-                // Low credit warning - subtle, only when 1-5 credits remaining
-                if !tierManager.isPro,
+                // Daily/credit warnings - subtle, priority to daily limit
+                if tierManager.dailyOutfitsRemaining == 1 {
+                    // Daily limit warning
+                    Text("1 outfit left today")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(AppColors.warning)
+                } else if !tierManager.isPro,
                    tierManager.styleCreditsRemaining > 0,
                    tierManager.styleCreditsRemaining <= 5 {
+                    // Monthly credit warning for free users
                     Text("\(tierManager.styleCreditsRemaining) credit\(tierManager.styleCreditsRemaining == 1 ? "" : "s") left")
                         .font(.system(size: 13, weight: .regular))
                         .foregroundColor(AppColors.textMuted)
@@ -236,6 +257,12 @@ struct StyleMeScreen: View {
     // MARK: - Actions
 
     private func generateOutfit() {
+        // Guard against rapid taps - prevent multiple simultaneous generations
+        guard !isLoading else {
+            print("[StyleMe] Generation already in progress, ignoring tap")
+            return
+        }
+
         print("[StyleMe] Generate button tapped")
         print("[StyleMe] tierInfo: \(String(describing: tierManager.tierInfo))")
         print("[StyleMe] isPro: \(tierManager.isPro), creditsRemaining: \(tierManager.styleCreditsRemaining)")

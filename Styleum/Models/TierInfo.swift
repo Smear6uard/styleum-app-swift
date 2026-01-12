@@ -53,6 +53,33 @@ struct TierInfo: Codable {
         subscriptionExpiresAt = try container.decodeIfPresent(Date.self, forKey: .subscriptionExpiresAt)
         subscriptionCancelledAt = try container.decodeIfPresent(Date.self, forKey: .subscriptionCancelledAt)
     }
+
+    /// Memberwise initializer for optimistic updates
+    init(
+        tier: String,
+        limits: TierLimits,
+        usage: TierUsage,
+        canAddItem: Bool,
+        canGenerateOutfit: Bool,
+        canUseStyleMe: Bool,
+        gracePeriodEndsAt: Date?,
+        subscriptionExpiresAt: Date?,
+        subscriptionCancelledAt: Date?,
+        hasBillingIssue: Bool,
+        hasSeenTierOnboarding: Bool
+    ) {
+        self.tier = tier
+        self.limits = limits
+        self.usage = usage
+        self.canAddItem = canAddItem
+        self.canGenerateOutfit = canGenerateOutfit
+        self.canUseStyleMe = canUseStyleMe
+        self.gracePeriodEndsAt = gracePeriodEndsAt
+        self.subscriptionExpiresAt = subscriptionExpiresAt
+        self.subscriptionCancelledAt = subscriptionCancelledAt
+        self.hasBillingIssue = hasBillingIssue
+        self.hasSeenTierOnboarding = hasSeenTierOnboarding
+    }
 }
 
 // MARK: - Tier Limits
