@@ -121,20 +121,20 @@ struct TierLimits: Codable {
 
 /// Current usage within the tier limits
 struct TierUsage: Codable {
-    let wardrobeItems: Int
-    let wardrobeLimit: Int
-    let wardrobeRemaining: Int
-    let dailyOutfitsUsed: Int
-    let dailyOutfitsLimit: Int
-    let styleCreditsUsed: Int
-    let styleCreditsLimit: Int
-    let styleCreditsRemaining: Int
-    let creditsResetsAt: Date?
+    var wardrobeItems: Int
+    var wardrobeLimit: Int
+    var wardrobeRemaining: Int
+    var dailyOutfitsUsed: Int
+    var dailyOutfitsLimit: Int
+    var styleCreditsUsed: Int
+    var styleCreditsLimit: Int
+    var styleCreditsRemaining: Int
+    var creditsResetsAt: Date?
 
     // Streak freeze tracking
-    let streakFreezesUsed: Int
-    let streakFreezesLimit: Int
-    let freezesResetAt: Date?
+    var streakFreezesUsed: Int
+    var streakFreezesLimit: Int
+    var freezesResetAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case wardrobeItems = "wardrobe_items"
@@ -142,13 +142,84 @@ struct TierUsage: Codable {
         case wardrobeRemaining = "wardrobe_remaining"
         case dailyOutfitsUsed = "daily_outfits_used"
         case dailyOutfitsLimit = "daily_outfits_limit"
+        // Flat keys (legacy)
         case styleCreditsUsed = "style_credits_used"
         case styleCreditsLimit = "style_credits_limit"
         case styleCreditsRemaining = "style_credits_remaining"
         case creditsResetsAt = "credits_resets_at"
+        // Nested key (current backend format)
+        case monthlyCredits = "monthlyCredits"
+        // Streak freezes
         case streakFreezesUsed = "streak_freezes_used"
         case streakFreezesLimit = "streak_freezes_limit"
         case freezesResetAt = "freezes_reset_at"
+    }
+
+    /// Nested structure for monthly credits from backend
+    private struct MonthlyCredits: Codable {
+        let used: Int
+        let limit: Int
+        let remaining: Int
+        let resetsAt: Date?
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Decode wardrobe fields
+        wardrobeItems = try container.decodeIfPresent(Int.self, forKey: .wardrobeItems) ?? 0
+        wardrobeLimit = try container.decodeIfPresent(Int.self, forKey: .wardrobeLimit) ?? 30
+        wardrobeRemaining = try container.decodeIfPresent(Int.self, forKey: .wardrobeRemaining) ?? 30
+        dailyOutfitsUsed = try container.decodeIfPresent(Int.self, forKey: .dailyOutfitsUsed) ?? 0
+        dailyOutfitsLimit = try container.decodeIfPresent(Int.self, forKey: .dailyOutfitsLimit) ?? 2
+
+        // Try nested monthlyCredits first (current backend format)
+        if let monthlyCredits = try? container.decode(MonthlyCredits.self, forKey: .monthlyCredits) {
+            styleCreditsUsed = monthlyCredits.used
+            styleCreditsLimit = monthlyCredits.limit
+            styleCreditsRemaining = monthlyCredits.remaining
+            creditsResetsAt = monthlyCredits.resetsAt
+        } else {
+            // Fall back to flat keys (legacy format)
+            styleCreditsUsed = try container.decodeIfPresent(Int.self, forKey: .styleCreditsUsed) ?? 0
+            styleCreditsLimit = try container.decodeIfPresent(Int.self, forKey: .styleCreditsLimit) ?? 5
+            styleCreditsRemaining = try container.decodeIfPresent(Int.self, forKey: .styleCreditsRemaining) ?? 5
+            creditsResetsAt = try container.decodeIfPresent(Date.self, forKey: .creditsResetsAt)
+        }
+
+        // Decode streak freeze fields
+        streakFreezesUsed = try container.decodeIfPresent(Int.self, forKey: .streakFreezesUsed) ?? 0
+        streakFreezesLimit = try container.decodeIfPresent(Int.self, forKey: .streakFreezesLimit) ?? 1
+        freezesResetAt = try container.decodeIfPresent(Date.self, forKey: .freezesResetAt)
+    }
+
+    /// Memberwise initializer for optimistic updates
+    init(
+        wardrobeItems: Int,
+        wardrobeLimit: Int,
+        wardrobeRemaining: Int,
+        dailyOutfitsUsed: Int,
+        dailyOutfitsLimit: Int,
+        styleCreditsUsed: Int,
+        styleCreditsLimit: Int,
+        styleCreditsRemaining: Int,
+        creditsResetsAt: Date?,
+        streakFreezesUsed: Int,
+        streakFreezesLimit: Int,
+        freezesResetAt: Date?
+    ) {
+        self.wardrobeItems = wardrobeItems
+        self.wardrobeLimit = wardrobeLimit
+        self.wardrobeRemaining = wardrobeRemaining
+        self.dailyOutfitsUsed = dailyOutfitsUsed
+        self.dailyOutfitsLimit = dailyOutfitsLimit
+        self.styleCreditsUsed = styleCreditsUsed
+        self.styleCreditsLimit = styleCreditsLimit
+        self.styleCreditsRemaining = styleCreditsRemaining
+        self.creditsResetsAt = creditsResetsAt
+        self.streakFreezesUsed = streakFreezesUsed
+        self.streakFreezesLimit = streakFreezesLimit
+        self.freezesResetAt = freezesResetAt
     }
 
     /// Days until credits reset
@@ -156,5 +227,21 @@ struct TierUsage: Codable {
         guard let resetsAt = creditsResetsAt else { return 0 }
         let days = Calendar.current.dateComponents([.day], from: Date(), to: resetsAt).day ?? 0
         return max(0, days)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(wardrobeItems, forKey: .wardrobeItems)
+        try container.encode(wardrobeLimit, forKey: .wardrobeLimit)
+        try container.encode(wardrobeRemaining, forKey: .wardrobeRemaining)
+        try container.encode(dailyOutfitsUsed, forKey: .dailyOutfitsUsed)
+        try container.encode(dailyOutfitsLimit, forKey: .dailyOutfitsLimit)
+        try container.encode(styleCreditsUsed, forKey: .styleCreditsUsed)
+        try container.encode(styleCreditsLimit, forKey: .styleCreditsLimit)
+        try container.encode(styleCreditsRemaining, forKey: .styleCreditsRemaining)
+        try container.encodeIfPresent(creditsResetsAt, forKey: .creditsResetsAt)
+        try container.encode(streakFreezesUsed, forKey: .streakFreezesUsed)
+        try container.encode(streakFreezesLimit, forKey: .streakFreezesLimit)
+        try container.encodeIfPresent(freezesResetAt, forKey: .freezesResetAt)
     }
 }

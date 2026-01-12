@@ -20,6 +20,7 @@ struct NotificationSettingsScreen: View {
                 Toggle("Daily Outfit Notifications", isOn: $isEnabled)
                     .tint(AppColors.slate)
                     .onChange(of: isEnabled) { _, newValue in
+                        HapticManager.shared.light()
                         if newValue {
                             Task {
                                 await requestPermissionIfNeeded()
@@ -41,6 +42,9 @@ struct NotificationSettingsScreen: View {
                     }
                     .pickerStyle(.wheel)
                     .frame(height: 120)
+                    .onChange(of: selectedHour) { _, _ in
+                        HapticManager.shared.selection()
+                    }
                 } header: {
                     Text("When would you like to receive your daily outfit?")
                 }

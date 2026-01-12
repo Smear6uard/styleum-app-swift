@@ -527,8 +527,7 @@ struct ItemEditSheet: View {
                 let updates = WardrobeItemUpdate(itemName: trimmedName.isEmpty ? nil : trimmedName)
                 try await wardrobeService.updateItem(id: itemId, updates: updates)
 
-                // Force refresh to confirm persistence
-                await wardrobeService.fetchItems()
+                // Note: updateItem() already updates local array - no need to fetchItems()
 
                 await MainActor.run {
                     isSaving = false

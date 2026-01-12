@@ -17,8 +17,7 @@ final class AppCoordinator {
     var preSelectedWardrobeItem: WardrobeItem?
 
     /// Notification observer tokens for cleanup
-    // Note: nonisolated(unsafe) warning is expected - required for deinit access
-    private nonisolated(unsafe) var notificationObservers: [Any] = []
+    private var notificationObservers: [Any] = []
 
     init() {
         // Observe deep link notifications from push notifications
@@ -77,12 +76,8 @@ final class AppCoordinator {
         notificationObservers.append(wardrobeObserver)
     }
 
-    deinit {
-        // Remove all notification observers to prevent memory leaks
-        for observer in notificationObservers {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
+    // Note: deinit not needed - NotificationCenter automatically removes observers
+    // when the observer object is deallocated
 
     /// Handles deep link navigation to Style Me tab
     private func handleDailyOutfitDeepLink() {

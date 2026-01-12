@@ -190,7 +190,7 @@ struct StyleMeScreen: View {
             }
             .opacity(hasAppeared ? 1 : 0)
             .offset(y: hasAppeared ? 0 : 10)
-            .animation(.easeOut(duration: 0.5), value: hasAppeared)
+            .animation(AppAnimations.springSmooth, value: hasAppeared)
 
             Spacer()
 
@@ -209,6 +209,15 @@ struct StyleMeScreen: View {
                         .cornerRadius(12)
                 }
                 .padding(.horizontal, 24)
+
+                // Low credit warning - subtle, only when 1-5 credits remaining
+                if !tierManager.isPro,
+                   tierManager.styleCreditsRemaining > 0,
+                   tierManager.styleCreditsRemaining <= 5 {
+                    Text("\(tierManager.styleCreditsRemaining) credit\(tierManager.styleCreditsRemaining == 1 ? "" : "s") left")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(AppColors.textMuted)
+                }
 
                 // Customize - secondary, subtle
                 Button {

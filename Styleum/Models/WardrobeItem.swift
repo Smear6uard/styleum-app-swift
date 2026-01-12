@@ -184,7 +184,7 @@ struct WardrobeItem: Codable, Identifiable, Equatable, Hashable {
 
     // MARK: - Equatable
     static func == (lhs: WardrobeItem, rhs: WardrobeItem) -> Bool {
-        lhs.id == rhs.id
+        lhs.id == rhs.id && lhs.updatedAt == rhs.updatedAt
     }
 
     // MARK: - Hashable

@@ -7,7 +7,16 @@ final class LocationService: NSObject {
     static let shared = LocationService()
 
     private let manager = CLLocationManager()
-    private let geocoder = CLGeocoder()
+
+    // Legacy geocoder for iOS < 26 (deprecated in iOS 26, but kept for backwards compatibility)
+    private var _geocoder: Any?
+    @available(iOS, deprecated: 26.0)
+    private var geocoder: CLGeocoder {
+        if _geocoder == nil {
+            _geocoder = CLGeocoder()
+        }
+        return _geocoder as! CLGeocoder
+    }
 
     var currentLocation: CLLocationCoordinate2D?
     var locationName: String = ""
@@ -120,14 +129,26 @@ final class LocationService: NSObject {
     }
 
     /// Modern reverse geocoding using MapKit (iOS 26+)
-    /// TODO: Update to use MKReverseGeocodingRequest when available
     @available(iOS 26.0, *)
     private func reverseGeocodeWithMapKit(_ location: CLLocation) async {
-        // MKReverseGeocodingRequest is not yet available, use CLGeocoder for now
-        await reverseGeocodeWithCLGeocoder(location)
+        guard let request = MKReverseGeocodingRequest(location: location) else {
+            print("📍 [Location] Failed to create MKReverseGeocodingRequest")
+            return
+        }
+        do {
+            let mapItems = try await request.mapItems
+            if let mapItem = mapItems.first, let name = mapItem.name {
+                await MainActor.run {
+                    self.locationName = name
+                }
+            }
+        } catch {
+            print("📍 [Location] MapKit reverse geocode failed: \(error)")
+        }
     }
 
     /// Legacy reverse geocoding using CLGeocoder (deprecated in iOS 26)
+    @available(iOS, deprecated: 26.0, message: "Use reverseGeocodeWithMapKit instead")
     private func reverseGeocodeWithCLGeocoder(_ location: CLLocation) async {
         do {
             let placemarks = try await geocoder.reverseGeocodeLocation(location)

@@ -7,9 +7,16 @@ enum AppAnimations {
     static let slow: Animation = .easeOut(duration: 0.3)
     static let page: Animation = .easeInOut(duration: 0.4)
 
-    // Springs — more playful, confident motion
+    // Springs — three-tier system for consistency
+    // Use springSnappy for buttons, toggles, quick interactions
+    // Use springSmooth for cards, sheets, most UI elements
+    // Use springGentle for page transitions, large movements
+    static let springSnappy = Animation.spring(response: 0.3, dampingFraction: 0.7)
+    static let springSmooth = Animation.spring(response: 0.4, dampingFraction: 0.8)
+    static let springGentle = Animation.spring(response: 0.5, dampingFraction: 0.85)
+
+    // Legacy springs (for backward compatibility)
     static let spring = Animation.spring(response: 0.4, dampingFraction: 0.65)
-    static let springSnappy = Animation.spring(response: 0.25, dampingFraction: 0.7)
     static let springBouncy = Animation.spring(response: 0.5, dampingFraction: 0.55)
     static let interactiveSpring = Animation.interactiveSpring(response: 0.25, dampingFraction: 0.7, blendDuration: 0.2)
 

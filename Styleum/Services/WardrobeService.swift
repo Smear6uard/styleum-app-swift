@@ -14,11 +14,24 @@ final class WardrobeService {
     private let supabase = SupabaseManager.shared.client
     private let api = StyleumAPI.shared
 
-    var items: [WardrobeItem] = []
+    var items: [WardrobeItem] = [] {
+        didSet {
+            // Maintain dictionary cache for O(1) lookups
+            itemsById = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        }
+    }
+    private var itemsById: [String: WardrobeItem] = [:]
     var isLoading = false
     var error: Error?
 
     var itemCount: Int { items.count }
+
+    // MARK: - Pending Item Polling (for AI processing completion)
+    private var pendingItemIds: Set<String> = []
+    private var pendingItemTimestamps: [String: Date] = [:]
+    private var pollingTask: Task<Void, Never>?
+    private let pollingInterval: TimeInterval = 5 // seconds
+    private let pollingTimeout: TimeInterval = 120 // 2 minutes max
 
     private init() {}
 
@@ -52,8 +65,8 @@ final class WardrobeService {
     // MARK: - Get Single Item
 
     func getItem(id: String) async -> WardrobeItem? {
-        // First check local cache
-        if let item = items.first(where: { $0.id == id }) {
+        // O(1) lookup from dictionary cache
+        if let item = itemsById[id] {
             return item
         }
 
@@ -122,6 +135,9 @@ final class WardrobeService {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
             items.insert(result.item, at: 0)
         }
+
+        // 5a. Start polling for AI processing completion
+        trackPendingItem(result.item.id)
 
         HapticManager.shared.success()
 
@@ -194,8 +210,8 @@ final class WardrobeService {
         isLoading = true
         defer { isLoading = false }
 
-        // Get item to find photo URL for storage cleanup
-        if let item = items.first(where: { $0.id == id }),
+        // Get item to find photo URL for storage cleanup (O(1) lookup)
+        if let item = itemsById[id],
            let photoUrl = item.photoUrl {
             // Extract file path from URL and delete from storage
             if let path = extractStoragePath(from: photoUrl) {
@@ -232,7 +248,7 @@ final class WardrobeService {
     // MARK: - Mark as Worn
 
     func markAsWorn(id: String) async throws {
-        guard let item = items.first(where: { $0.id == id }) else { return }
+        guard let item = itemsById[id] else { return }
 
         let updates = WardrobeItemUpdate(
             timesWorn: item.timesWorn + 1,
@@ -246,7 +262,7 @@ final class WardrobeService {
     // MARK: - Toggle Favorite
 
     func toggleFavorite(id: String) async throws {
-        guard let item = items.first(where: { $0.id == id }) else { return }
+        guard let item = itemsById[id] else { return }
 
         let updates = WardrobeItemUpdate(
             isFavorite: !(item.isFavorite ?? false)
@@ -291,6 +307,77 @@ final class WardrobeService {
 
     func itemCount(for category: ClothingCategory) -> Int {
         items(for: category).count
+    }
+
+    // MARK: - Pending Item Polling
+
+    /// Adds an item to the pending list and starts polling for AI completion
+    private func trackPendingItem(_ itemId: String) {
+        pendingItemIds.insert(itemId)
+        pendingItemTimestamps[itemId] = Date()
+        startPollingIfNeeded()
+    }
+
+    /// Starts the polling task if not already running
+    private func startPollingIfNeeded() {
+        guard pollingTask == nil, !pendingItemIds.isEmpty else { return }
+
+        pollingTask = Task {
+            while !pendingItemIds.isEmpty && !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(pollingInterval))
+                guard !Task.isCancelled else { break }
+                await refreshPendingItems()
+            }
+            pollingTask = nil
+        }
+    }
+
+    /// Fetches updated data for pending items and removes them when AI processing is complete
+    private func refreshPendingItems() async {
+        let now = Date()
+        var itemsToRemove: Set<String> = []
+
+        for id in pendingItemIds {
+            // Check timeout
+            if let startTime = pendingItemTimestamps[id],
+               now.timeIntervalSince(startTime) > pollingTimeout {
+                itemsToRemove.insert(id)
+                print("[Polling] Item \(id) timed out after \(pollingTimeout)s")
+                continue
+            }
+
+            // Fetch fresh data
+            if let updated = try? await api.getItem(id: id) {
+                if let index = items.firstIndex(where: { $0.id == id }) {
+                    items[index] = updated
+                }
+
+                // Remove from pending if AI analysis is complete
+                let hasAnalysis = updated.denseCaption != nil || updated.styleBucket != nil
+                let hasProcessedImage = updated.photoUrlClean != nil
+                if hasAnalysis && hasProcessedImage {
+                    itemsToRemove.insert(id)
+                    print("[Polling] Item \(id) AI processing complete")
+                }
+            }
+        }
+
+        // Cleanup completed/timed-out items
+        for id in itemsToRemove {
+            pendingItemIds.remove(id)
+            pendingItemTimestamps.removeValue(forKey: id)
+        }
+    }
+
+    /// Stops polling (call when app backgrounds)
+    func stopPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
+    }
+
+    /// Resumes polling for any pending items (call when app foregrounds)
+    func resumePollingIfNeeded() {
+        startPollingIfNeeded()
     }
 
     var hasEnoughForOutfits: Bool {
