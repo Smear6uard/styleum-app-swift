@@ -34,6 +34,25 @@ struct TierInfo: Codable {
         case hasBillingIssue = "has_billing_issue"
         case hasSeenTierOnboarding = "has_seen_tier_onboarding"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tier = try container.decode(String.self, forKey: .tier)
+        limits = try container.decode(TierLimits.self, forKey: .limits)
+        usage = try container.decode(TierUsage.self, forKey: .usage)
+
+        // Boolean flags with sensible defaults for missing keys
+        canAddItem = try container.decodeIfPresent(Bool.self, forKey: .canAddItem) ?? true
+        canGenerateOutfit = try container.decodeIfPresent(Bool.self, forKey: .canGenerateOutfit) ?? true
+        canUseStyleMe = try container.decodeIfPresent(Bool.self, forKey: .canUseStyleMe) ?? true
+        hasBillingIssue = try container.decodeIfPresent(Bool.self, forKey: .hasBillingIssue) ?? false
+        hasSeenTierOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasSeenTierOnboarding) ?? false
+
+        // Optional dates
+        gracePeriodEndsAt = try container.decodeIfPresent(Date.self, forKey: .gracePeriodEndsAt)
+        subscriptionExpiresAt = try container.decodeIfPresent(Date.self, forKey: .subscriptionExpiresAt)
+        subscriptionCancelledAt = try container.decodeIfPresent(Date.self, forKey: .subscriptionCancelledAt)
+    }
 }
 
 // MARK: - Tier Limits
