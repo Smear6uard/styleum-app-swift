@@ -10,9 +10,19 @@ struct NotificationSettingsScreen: View {
     @State private var selectedHour = 9
     @State private var isSaving = false
     @State private var showingPermissionDenied = false
+    @State private var showDiscardAlert = false
+
+    // Track original values for change detection
+    @State private var originalEnabled = true
+    @State private var originalHour = 9
 
     // Delivery hour options (4 AM to 11 AM)
     private let hourOptions = Array(4...11)
+
+    /// Check if user has unsaved changes
+    private var hasUnsavedChanges: Bool {
+        isEnabled != originalEnabled || selectedHour != originalHour
+    }
 
     var body: some View {
         List {
@@ -75,7 +85,7 @@ struct NotificationSettingsScreen: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(AppColors.backgroundSecondary)
-                            .cornerRadius(8)
+                            .cornerRadius(AppSpacing.radiusSm)
                         }
                         .buttonStyle(.plain)
                     }
@@ -86,6 +96,15 @@ struct NotificationSettingsScreen: View {
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") {
+                    if hasUnsavedChanges {
+                        showDiscardAlert = true
+                    } else {
+                        dismiss()
+                    }
+                }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
                     Task {
@@ -95,6 +114,15 @@ struct NotificationSettingsScreen: View {
                 .disabled(isSaving)
             }
         }
+        .alert("Discard Changes?", isPresented: $showDiscardAlert) {
+            Button("Keep Editing", role: .cancel) {}
+            Button("Discard", role: .destructive) {
+                dismiss()
+            }
+        } message: {
+            Text("You have unsaved changes that will be lost.")
+        }
+        .interactiveDismissDisabled(hasUnsavedChanges)
         .onAppear {
             loadCurrentPreferences()
             Task {
@@ -121,14 +149,19 @@ struct NotificationSettingsScreen: View {
 
     private func loadCurrentPreferences() {
         if let profile = profileService.currentProfile {
-            isEnabled = profile.pushEnabled ?? true
+            let enabled = profile.pushEnabled ?? true
+            isEnabled = enabled
+            originalEnabled = enabled
 
             // Parse hour from time string
             if let timeString = profile.morningNotificationTime {
                 let components = timeString.split(separator: ":")
                 if let hourString = components.first, let hour = Int(hourString) {
                     selectedHour = hour
+                    originalHour = hour
                 }
+            } else {
+                originalHour = selectedHour
             }
         }
     }

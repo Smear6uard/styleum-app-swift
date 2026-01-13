@@ -249,11 +249,11 @@ struct WardrobeScreen: View {
                 ScrollView {
                     LazyVGrid(
                         columns: [
-                            GridItem(.flexible(), spacing: 14),
-                            GridItem(.flexible(), spacing: 14)
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16)
                         ],
                         alignment: .center,
-                        spacing: 16
+                        spacing: 20
                     ) {
                         ForEach(0..<6, id: \.self) { _ in
                             WardrobeItemSkeleton()
@@ -277,11 +277,11 @@ struct WardrobeScreen: View {
                 ScrollView {
                     LazyVGrid(
                         columns: [
-                            GridItem(.flexible(), spacing: 14),
-                            GridItem(.flexible(), spacing: 14)
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16)
                         ],
                         alignment: .center,
-                        spacing: 16
+                        spacing: 20
                     ) {
                         ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
                             wardrobeGridItem(item: item, index: index)
@@ -311,7 +311,14 @@ struct WardrobeScreen: View {
                 }
             }
         }
-        .background(AppColors.background)
+        .background(
+            LinearGradient(
+                colors: [AppColors.canvasTop, AppColors.canvasBottom],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .navigationBarHidden(true)
         .task {
             await tierManager.refresh()
@@ -490,10 +497,15 @@ struct WardrobeItemCard: View {
                 let parallaxOffset = max(-15, min(15, (minY - 300) * 0.04))
 
                 ZStack(alignment: .topTrailing) {
-                    // Use Kingfisher for proper caching, deduplication, and memory management
-                    if let urlString = item.displayPhotoUrl,
-                       !urlString.isEmpty,
-                       let url = URL(string: urlString) {
+                    // Show shimmer while processing, then reveal processed image
+                    if item.isProcessing {
+                        ProcessingItemOverlay()
+                            .frame(width: geo.size.width, height: geo.size.width * 4/3)
+                            .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
+                    } else if let urlString = item.displayPhotoUrl,
+                              !urlString.isEmpty,
+                              let url = URL(string: urlString) {
+                        // Use Kingfisher for proper caching, deduplication, and memory management
                         KFImage(url)
                             .placeholder {
                                 loadingPlaceholder
@@ -506,6 +518,7 @@ struct WardrobeItemCard: View {
                             .clipped()
                             .offset(y: parallaxOffset)
                             .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
+                            .transition(.opacity.combined(with: .scale(scale: 0.97)))
                     } else {
                         // No valid URL - show logo placeholder immediately
                         fallbackPlaceholder
@@ -536,6 +549,23 @@ struct WardrobeItemCard: View {
                 RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
                     .fill(Color(hex: "FAFAFA"))
             )
+            // Frame effect: hairline border
+            .overlay(
+                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+                    .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
+            )
+            // Frame effect: inner shadow (recessed look)
+            .overlay(
+                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.black.opacity(0.08), Color.clear],
+                            startPoint: .top,
+                            endPoint: .center
+                        ),
+                        lineWidth: 2
+                    )
+            )
 
             // Item info - Bug Fix: Always show name or category fallback
             VStack(alignment: .leading, spacing: 2) {
@@ -557,11 +587,9 @@ struct WardrobeItemCard: View {
             .padding(.horizontal, 2)
         }
         .frame(maxWidth: .infinity)
-        .background(Color.clear)
-        // Triple-layer shadow for depth
-        .shadow(color: .black.opacity(0.03), radius: 1, y: 1)
-        .shadow(color: .black.opacity(0.06), radius: 8, y: 4)
-        .shadow(color: .black.opacity(0.03), radius: 20, y: 8)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
+        .boutiqueElevation()
     }
 
     private var loadingPlaceholder: some View {

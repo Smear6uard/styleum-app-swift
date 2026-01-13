@@ -2,12 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSCameraUsageDescription</key>
-	<string>Styleum needs camera access to photograph your clothing items</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Styleum needs photo library access to add clothing items from your library</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Styleum uses your location to provide weather-appropriate outfit suggestions.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -34,29 +28,33 @@
 	<key>UIApplicationShortcutItems</key>
 	<array>
 		<dict>
-			<key>UIApplicationShortcutItemType</key>
-			<string>com.styleum.styleme</string>
-			<key>UIApplicationShortcutItemTitle</key>
-			<string>Style Me</string>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>wand.and.stars</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Style Me</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.styleum.styleme</string>
 		</dict>
 		<dict>
-			<key>UIApplicationShortcutItemType</key>
-			<string>com.styleum.additem</string>
-			<key>UIApplicationShortcutItemTitle</key>
-			<string>Add Item</string>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>camera</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Add Item</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.styleum.additem</string>
 		</dict>
 		<dict>
-			<key>UIApplicationShortcutItemType</key>
-			<string>com.styleum.wardrobe</string>
-			<key>UIApplicationShortcutItemTitle</key>
-			<string>My Wardrobe</string>
 			<key>UIApplicationShortcutItemIconSymbolName</key>
 			<string>tshirt</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>My Wardrobe</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.styleum.wardrobe</string>
 		</dict>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

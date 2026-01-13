@@ -16,6 +16,7 @@ struct ProfileScreen: View {
     @State private var isSigningOut = false
     @State private var isLoadingShare = false
     @State private var showShareError = false
+    @State private var showRetakeStyleQuizConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -88,6 +89,38 @@ struct ProfileScreen: View {
                         }
                     )
                 }
+
+                // Retake Style Quiz Button
+                Button {
+                    HapticManager.shared.light()
+                    showRetakeStyleQuizConfirmation = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(AppColors.textPrimary)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Retake Style Quiz")
+                                .font(AppTypography.labelLarge)
+                                .foregroundColor(AppColors.textPrimary)
+
+                            Text("Update your style preferences")
+                                .font(AppTypography.bodySmall)
+                                .foregroundColor(AppColors.textMuted)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(AppColors.textMuted)
+                    }
+                    .padding(AppSpacing.md)
+                    .background(AppColors.backgroundSecondary)
+                    .cornerRadius(AppSpacing.radiusMd)
+                }
+                .buttonStyle(ScaleButtonStyle())
 
                 // Referral card - only orbs here have subtle gradient
                 VStack(spacing: AppSpacing.md) {
@@ -174,7 +207,7 @@ struct ProfileScreen: View {
                     .background(AppColors.backgroundSecondary)
                     .cornerRadius(AppSpacing.radiusFull)
                 }
-                .buttonStyle(ProfileSignOutStyle())
+                .buttonStyle(ScaleButtonStyle())
                 .disabled(isSigningOut)
                 .padding(.top, AppSpacing.md)
             }
@@ -207,6 +240,14 @@ struct ProfileScreen: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Please try again in a moment.")
+        }
+        .alert("Retake Style Quiz?", isPresented: $showRetakeStyleQuizConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Retake") {
+                coordinator.presentFullScreen(.styleQuiz)
+            }
+        } message: {
+            Text("This will update your style preferences based on your new choices.")
         }
         .task {
             await profileService.fetchProfile()
@@ -540,15 +581,6 @@ private struct QuickStatPill: View {
     }
 }
 
-// MARK: - Profile Sign Out Button Style
-private struct ProfileSignOutStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
-    }
-}
 
 #Preview {
     ProfileScreen()

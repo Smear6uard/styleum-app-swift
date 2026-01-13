@@ -1,6 +1,7 @@
 import Foundation
 import Supabase
 import GoogleSignIn
+import AuthenticationServices
 
 #if os(iOS)
 import UIKit
@@ -160,6 +161,83 @@ final class AuthService {
         #endif
     }
 
+    // MARK: - Apple Sign In
+    @MainActor
+    func signInWithApple() async throws {
+        print("🔐 [AUTH] ========== APPLE SIGN-IN START ==========")
+        print("🔐 [AUTH] Timestamp: \(Date())")
+
+        isLoading = true
+        error = nil
+        print("🔐 [AUTH] Set isLoading=true, cleared error")
+
+        defer {
+            isLoading = false
+            print("🔐 [AUTH] Set isLoading=false (defer)")
+        }
+
+        #if os(iOS)
+        do {
+            print("🔐 [AUTH] Creating AppleSignInCoordinator...")
+            let coordinator = AppleSignInCoordinator()
+
+            print("🔐 [AUTH] Presenting Apple Sign-In dialog...")
+            let credential = try await coordinator.signIn()
+            print("🔐 [AUTH] ✅ Apple Sign-In dialog completed")
+            print("🔐 [AUTH] Apple user ID: \(credential.user)")
+            print("🔐 [AUTH] Apple user email: \(credential.email ?? "not provided")")
+            print("🔐 [AUTH] Apple user name: \(credential.fullName?.givenName ?? "not provided")")
+
+            guard let identityToken = credential.identityToken,
+                  let identityTokenString = String(data: identityToken, encoding: .utf8) else {
+                print("🔐 [AUTH] ❌ No identity token received from Apple")
+                throw AuthError.noIdToken
+            }
+
+            print("🔐 [AUTH] ✅ Got identity token (length: \(identityTokenString.count) chars)")
+            print("🔐 [AUTH] Exchanging identity token with Supabase...")
+
+            let response = try await supabase.auth.signInWithIdToken(
+                credentials: .init(
+                    provider: .apple,
+                    idToken: identityTokenString
+                )
+            )
+
+            print("🔐 [AUTH] ✅ Supabase auth.signInWithIdToken successful")
+            print("🔐 [AUTH] Response user ID: \(response.user.id)")
+            print("🔐 [AUTH] Response user email: \(response.user.email ?? "no email")")
+            print("🔐 [AUTH] Session access token exists: \(!response.accessToken.isEmpty)")
+
+            currentUser = response.user
+            print("🔐 [AUTH] ✅ currentUser set to: \(currentUser?.email ?? "nil")")
+            print("🔐 [AUTH] ✅ isAuthenticated is now: \(isAuthenticated)")
+
+            HapticManager.shared.success()
+            print("🔐 [AUTH] ========== APPLE SIGN-IN SUCCESS ==========")
+
+        } catch let error as NSError {
+            print("🔐 [AUTH] ========== APPLE SIGN-IN ERROR ==========")
+            print("🔐 [AUTH] ❌ Error occurred during Apple Sign-In")
+            print("🔐 [AUTH] Error type: \(type(of: error))")
+            print("🔐 [AUTH] Error domain: \(error.domain)")
+            print("🔐 [AUTH] Error code: \(error.code)")
+            print("🔐 [AUTH] Error localizedDescription: \(error.localizedDescription)")
+
+            // Don't show error for user cancellation
+            if error.domain == ASAuthorizationError.errorDomain && error.code == ASAuthorizationError.canceled.rawValue {
+                print("🔐 [AUTH] User cancelled Apple Sign-In - not showing error")
+                return
+            }
+
+            self.error = error
+            throw error
+        }
+        #else
+        print("🔐 [AUTH] ❌ Platform not iOS - Apple Sign-In not supported")
+        #endif
+    }
+
     // MARK: - Email OTP Sign In
 
     /// Sends a one-time password to the specified email address
@@ -252,6 +330,7 @@ enum AuthError: LocalizedError {
     case noViewController
     case noIdToken
     case sessionExpired
+    case appleSignInFailed
 
     var errorDescription: String? {
         switch self {
@@ -261,6 +340,52 @@ enum AuthError: LocalizedError {
             return "We couldn't complete sign-in. Please try again."
         case .sessionExpired:
             return "Your session has expired. Please sign in again."
+        case .appleSignInFailed:
+            return "Apple Sign-In failed. Please try again."
         }
     }
 }
+
+// MARK: - Apple Sign In Coordinator
+#if os(iOS)
+final class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    private var continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>?
+
+    func signIn() async throws -> ASAuthorizationAppleIDCredential {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+
+            let provider = ASAuthorizationAppleIDProvider()
+            let request = provider.createRequest()
+            request.requestedScopes = [.email, .fullName]
+
+            let controller = ASAuthorizationController(authorizationRequests: [request])
+            controller.delegate = self
+            controller.presentationContextProvider = self
+            controller.performRequests()
+        }
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else {
+            return UIWindow()
+        }
+        return window
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
+            continuation?.resume(returning: credential)
+        } else {
+            continuation?.resume(throwing: AuthError.appleSignInFailed)
+        }
+        continuation = nil
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        continuation?.resume(throwing: error)
+        continuation = nil
+    }
+}
+#endif

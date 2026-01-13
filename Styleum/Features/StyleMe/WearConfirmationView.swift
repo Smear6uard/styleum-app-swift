@@ -87,7 +87,7 @@ struct WearConfirmationView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(AppColors.textPrimary)
-                        .cornerRadius(12)
+                        .cornerRadius(AppSpacing.radiusMd)
                 }
 
                 Button {
@@ -123,7 +123,7 @@ struct WearConfirmationView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(AppColors.backgroundSecondary)
-        .cornerRadius(10)
+        .cornerRadius(AppSpacing.radiusSm)
     }
 
     // MARK: - Animation

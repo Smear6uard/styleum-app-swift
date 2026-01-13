@@ -124,7 +124,7 @@ struct RootView: View {
             print("🏠 [ROOT]   - onboardingVersion: \(profileService.currentProfile?.onboardingVersion.map { String($0) } ?? "nil")")
             print("🏠 [ROOT]   - shouldShowOnboarding will be: \(shouldShowOnboarding)")
 
-            withAnimation(.easeOut(duration: 0.3)) {
+            withAnimation(AppAnimations.springGentle) {
                 isCheckingSession = false
             }
             print("🏠 [ROOT] ========== ROOT TASK END ==========")

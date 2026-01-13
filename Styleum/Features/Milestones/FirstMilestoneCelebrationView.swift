@@ -12,6 +12,7 @@ struct FirstMilestoneInfo {
 enum FirstMilestoneType {
     case firstWardrobeItem
     case firstOutfit
+    case firstAutoOutfit  // Auto-generated first outfit
 }
 
 /// Celebratory view shown when user hits first-time milestones.
@@ -19,6 +20,7 @@ enum FirstMilestoneType {
 struct FirstMilestoneCelebrationView: View {
     let milestone: FirstMilestoneInfo
     @Binding var isPresented: Bool
+    var onDismiss: (() -> Void)? = nil  // Optional callback for post-dismiss navigation
 
     // Animation states
     @State private var iconScale: CGFloat = 0
@@ -98,7 +100,7 @@ struct FirstMilestoneCelebrationView: View {
                 Button {
                     dismiss()
                 } label: {
-                    Text("Let's Go!")
+                    Text(milestone.type == .firstAutoOutfit ? "See My Outfit" : "Let's Go!")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(AppColors.black)
                         .frame(maxWidth: .infinity)
@@ -154,6 +156,12 @@ struct FirstMilestoneCelebrationView: View {
         withAnimation(.easeOut(duration: 0.2)) {
             isPresented = false
         }
+        // Call completion after dismiss animation
+        if let onDismiss = onDismiss {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                onDismiss()
+            }
+        }
     }
 }
 
@@ -185,10 +193,27 @@ struct FirstMilestoneCelebrationModifier: ViewModifier {
                 )
                 isPresented = true
             }
+            .onReceive(NotificationCenter.default.publisher(for: .firstAutoOutfitReady)) { _ in
+                milestoneInfo = FirstMilestoneInfo(
+                    type: .firstAutoOutfit,
+                    title: "Your First Outfit is Ready!",
+                    subtitle: "We created a look just for you.\nTap to see what to wear today!",
+                    icon: "sparkles",
+                    iconColor: Color(hex: "8B5CF6")
+                )
+                isPresented = true
+            }
             .fullScreenCover(isPresented: $isPresented) {
                 if let info = milestoneInfo {
-                    FirstMilestoneCelebrationView(milestone: info, isPresented: $isPresented)
-                        .background(Color.clear)
+                    FirstMilestoneCelebrationView(
+                        milestone: info,
+                        isPresented: $isPresented,
+                        onDismiss: info.type == .firstAutoOutfit ? {
+                            // Navigate to Style Me tab to view the outfit
+                            NotificationCenter.default.post(name: .navigateToStyleMe, object: nil)
+                        } : nil
+                    )
+                    .background(Color.clear)
                 }
             }
     }

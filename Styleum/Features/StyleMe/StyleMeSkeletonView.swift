@@ -53,22 +53,22 @@ struct StyleMeSkeletonView: View {
                 VStack(spacing: 20) {
                     // Main outfit image skeleton
                     SkeletonRect(height: 280)
-                        .cornerRadius(16)
+                        .cornerRadius(AppSpacing.radiusLg)
 
                     // Item thumbnails row skeleton
                     HStack(spacing: 12) {
                         ForEach(0..<4, id: \.self) { _ in
                             SkeletonRect(width: 64, height: 64)
-                                .cornerRadius(10)
+                                .cornerRadius(AppSpacing.radiusSm)
                         }
                     }
 
                     // Text skeletons
                     VStack(spacing: 10) {
                         SkeletonRect(width: 220, height: 22)
-                            .cornerRadius(4)
+                            .cornerRadius(AppSpacing.radiusTiny)
                         SkeletonRect(width: 160, height: 16)
-                            .cornerRadius(4)
+                            .cornerRadius(AppSpacing.radiusTiny)
                     }
                 }
                 .padding(.horizontal, 24)

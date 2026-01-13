@@ -28,6 +28,8 @@ struct CompleteOnboardingRequest: Encodable {
     let dislikedStyleIds: [String]
     let favoriteBrands: [String]
     let bodyShape: String?
+    let heightCategory: String?
+    let skinUndertone: String?
 
     enum CodingKeys: String, CodingKey {
         case firstName = "first_name"
@@ -36,5 +38,7 @@ struct CompleteOnboardingRequest: Encodable {
         case dislikedStyleIds = "disliked_style_ids"
         case favoriteBrands = "favorite_brands"
         case bodyShape = "body_shape"
+        case heightCategory = "height_category"
+        case skinUndertone = "skin_undertone"
     }
 }

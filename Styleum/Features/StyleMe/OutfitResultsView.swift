@@ -51,6 +51,10 @@ struct OutfitResultsView: View {
         !tierManager.isPro && currentIndex >= unlockedOutfitCount
     }
 
+    private var isLastOutfit: Bool {
+        currentIndex >= outfits.count - 1
+    }
+
     // Animation state for staggered fade-in
     @State private var animateItems = false
 
@@ -537,21 +541,21 @@ struct OutfitResultsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(AppColors.textPrimary)
-                    .cornerRadius(14)
+                    .cornerRadius(AppSpacing.radiusLg)
             }
 
             // Secondary actions row
             HStack(spacing: 12) {
                 Button { skipOutfit() } label: {
-                    Text("Skip")
+                    Text(isLastOutfit ? "Done" : "Skip")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(AppColors.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(Color.white)
-                        .cornerRadius(12)
+                        .cornerRadius(AppSpacing.radiusMd)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12)
+                            RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
                                 .stroke(Color(hex: "E0E0E0"), lineWidth: 1)
                         )
                 }
@@ -567,9 +571,9 @@ struct OutfitResultsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(Color.white)
-                    .cornerRadius(12)
+                    .cornerRadius(AppSpacing.radiusMd)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
                             .stroke(Color(hex: "E0E0E0"), lineWidth: 1)
                     )
                 }
@@ -620,7 +624,7 @@ struct OutfitResultsView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(.ultraThinMaterial)
-                    .cornerRadius(20)
+                    .cornerRadius(AppSpacing.radiusXl)
             }
 
             Spacer()

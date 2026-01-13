@@ -81,4 +81,12 @@ extension View {
             .shadow(color: .black.opacity(0.1), radius: 16, y: 8)
             .shadow(color: .black.opacity(0.05), radius: 32, y: 16)
     }
+
+    /// Boutique card elevation - spatial, premium feel for wardrobe items
+    func boutiqueElevation() -> some View {
+        self
+            .shadow(color: .black.opacity(0.03), radius: 1, y: 1)     // Contact shadow
+            .shadow(color: .black.opacity(0.05), radius: 6, y: 3)     // Near ambient
+            .shadow(color: .black.opacity(0.04), radius: 16, y: 8)    // Far ambient
+    }
 }

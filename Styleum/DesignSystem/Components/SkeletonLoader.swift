@@ -29,24 +29,32 @@ struct SkeletonCircle: View {
 // MARK: - Card Image Skeleton (for AsyncImage placeholders)
 struct CardImageSkeleton: View {
     @State private var shimmerOffset: CGFloat = -200
+    private let reduceMotion = UIAccessibility.isReduceMotionEnabled
 
     var body: some View {
         ZStack {
             Rectangle()
                 .fill(AppColors.backgroundSecondary)
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [.clear, .white.opacity(0.3), .clear],
-                        startPoint: .leading,
-                        endPoint: .trailing
+            if !reduceMotion {
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.clear, .white.opacity(0.3), .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
                     )
-                )
-                .offset(x: shimmerOffset)
+                    .offset(x: shimmerOffset)
+            } else {
+                Rectangle()
+                    .fill(Color.white.opacity(0.15))
+            }
         }
         .onAppear {
-            withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
-                shimmerOffset = 200
+            if !reduceMotion {
+                withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) {
+                    shimmerOffset = 200
+                }
             }
         }
     }
@@ -59,6 +67,7 @@ struct SkeletonLoader: View {
     var cornerRadius: CGFloat = AppSpacing.radiusSm
 
     @State private var isAnimating = false
+    private let reduceMotion = UIAccessibility.isReduceMotionEnabled
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
@@ -66,26 +75,32 @@ struct SkeletonLoader: View {
             .frame(width: width, height: height)
             .overlay(
                 GeometryReader { geo in
-                    LinearGradient(
-                        colors: [
-                            .clear,
-                            .white.opacity(0.4),
-                            .clear
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(width: geo.size.width * 0.6)
-                    .offset(x: isAnimating ? geo.size.width : -geo.size.width * 0.6)
+                    if reduceMotion {
+                        Color.white.opacity(0.15)
+                    } else {
+                        LinearGradient(
+                            colors: [
+                                .clear,
+                                .white.opacity(0.4),
+                                .clear
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: geo.size.width * 0.6)
+                        .offset(x: isAnimating ? geo.size.width : -geo.size.width * 0.6)
+                    }
                 }
             )
             .mask(RoundedRectangle(cornerRadius: cornerRadius))
             .onAppear {
-                withAnimation(
-                    .linear(duration: 1.2)
-                    .repeatForever(autoreverses: false)
-                ) {
-                    isAnimating = true
+                if !reduceMotion {
+                    withAnimation(
+                        .linear(duration: 1.2)
+                        .repeatForever(autoreverses: false)
+                    ) {
+                        isAnimating = true
+                    }
                 }
             }
     }

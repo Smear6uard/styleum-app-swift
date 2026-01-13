@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 struct LoginScreen: View {
     @State private var authService = AuthService.shared
@@ -74,7 +75,31 @@ struct LoginScreen: View {
 
                 // Apple Sign In
                 Button {
-                    // Apple Sign In - implement later
+                    print("🔑 [LOGIN] ========== APPLE SIGN-IN BUTTON TAPPED ==========")
+                    print("🔑 [LOGIN] Timestamp: \(Date())")
+                    print("🔑 [LOGIN] authService.isLoading: \(authService.isLoading)")
+                    print("🔑 [LOGIN] authService.isAuthenticated: \(authService.isAuthenticated)")
+
+                    Task {
+                        do {
+                            print("🔑 [LOGIN] Calling authService.signInWithApple()...")
+                            try await authService.signInWithApple()
+                            print("🔑 [LOGIN] ✅ signInWithApple completed successfully")
+                            print("🔑 [LOGIN] isAuthenticated: \(authService.isAuthenticated)")
+                        } catch {
+                            print("🔑 [LOGIN] ❌ signInWithApple threw error!")
+                            print("🔑 [LOGIN] Error type: \(type(of: error))")
+                            print("🔑 [LOGIN] Error description: \(error.localizedDescription)")
+                            print("🔑 [LOGIN] Full error: \(error)")
+                            // Only show error alert if it wasn't a user cancellation
+                            if let asError = error as? ASAuthorizationError, asError.code == .canceled {
+                                print("🔑 [LOGIN] User cancelled - not showing error")
+                            } else {
+                                print("🔑 [LOGIN] Setting showError=true")
+                                showError = true
+                            }
+                        }
+                    }
                 } label: {
                     HStack(spacing: AppSpacing.sm) {
                         Image(systemName: "apple.logo")
@@ -93,6 +118,7 @@ struct LoginScreen: View {
                     )
                 }
                 .buttonStyle(ScaleButtonStyle())
+                .disabled(authService.isLoading)
 
                 // Divider
                 HStack(spacing: AppSpacing.md) {

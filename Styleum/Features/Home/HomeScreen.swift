@@ -507,7 +507,7 @@ struct MostWornCard: View {
                             Rectangle().fill(AppColors.filterTagBg)
                         }
                         .frame(width: 36, height: 36)
-                        .cornerRadius(6)
+                        .cornerRadius(AppSpacing.radiusXs)
                         .clipped()
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -871,9 +871,7 @@ struct DailyOutfitHeroCard: View {
         }
         .background(AppColors.backgroundSecondary)
         .cornerRadius(AppSpacing.radiusXl)
-        .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
-        .shadow(color: .black.opacity(0.08), radius: 16, y: 8)
-        .shadow(color: .black.opacity(0.04), radius: 32, y: 16)
+        .heroElevation()
         .padding(.horizontal, AppSpacing.pageMargin)
     }
 }

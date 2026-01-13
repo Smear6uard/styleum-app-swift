@@ -68,6 +68,11 @@ struct WardrobeItem: Codable, Identifiable, Equatable, Hashable {
         photoUrlClean != nil
     }
 
+    /// Item is processing until background-removed image is available
+    var isProcessing: Bool {
+        photoUrlClean == nil
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"

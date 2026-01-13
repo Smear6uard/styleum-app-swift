@@ -47,6 +47,17 @@ final class AchievementsService {
         do {
             achievements = try await api.getAchievements()
             print("[Achievements] Received \(achievements.count) achievements")
+
+            // DEBUG: Log each achievement's progress values
+            for achievement in achievements {
+                print("🔍 [DEBUG] Achievement '\(achievement.title)': progress=\(achievement.currentProgress)/\(achievement.targetProgress), unlocked=\(achievement.isUnlocked)")
+            }
+
+            // DEBUG: Check "First Steps" specifically
+            if let firstSteps = achievements.first(where: { $0.title.contains("First") }) {
+                print("🔍 [DEBUG] First Steps badge: progress=\(firstSteps.currentProgress), target=\(firstSteps.targetProgress), unlocked=\(firstSteps.isUnlocked)")
+            }
+
             self.error = nil
         } catch {
             print("[Achievements] Error fetching: \(error)")

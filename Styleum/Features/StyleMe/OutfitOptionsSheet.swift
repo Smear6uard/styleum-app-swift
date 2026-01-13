@@ -1,9 +1,17 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct OutfitOptionsSheet: View {
     let outfitId: String
     @Environment(\.dismiss) private var dismiss
     @Environment(AppCoordinator.self) private var coordinator
+
+    private let outfitRepo = OutfitRepository.shared
+    private let wardrobeService = WardrobeService.shared
+
+    @State private var showShareSheet = false
 
     var body: some View {
         VStack(spacing: AppSpacing.md) {
@@ -23,8 +31,13 @@ struct OutfitOptionsSheet: View {
                     dismiss()
                 }
 
-                AppButton(label: "Share", variant: .secondary, icon: .share) {
-                    // Share action
+                AppButton(
+                    label: "Share",
+                    variant: .secondary,
+                    icon: .share
+                ) {
+                    HapticManager.shared.medium()
+                    showShareSheet = true
                 }
 
                 AppButton(label: "Not for me", variant: .secondary) {
@@ -38,6 +51,21 @@ struct OutfitOptionsSheet: View {
         }
         .presentationDetents([.height(280)])
         .presentationDragIndicator(.hidden)
+        .fullScreenCover(isPresented: $showShareSheet) {
+            if let outfit = outfitRepo.sessionOutfits.first(where: { $0.id == outfitId }) {
+                let itemIds = outfit.wardrobeItemIds
+                let items = wardrobeService.items.filter { itemIds.contains($0.id) }
+
+                ShareOptionsSheet(
+                    outfit: outfit,
+                    items: items,
+                    onDismiss: {
+                        showShareSheet = false
+                        dismiss()
+                    }
+                )
+            }
+        }
     }
 }
 

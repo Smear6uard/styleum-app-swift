@@ -5,10 +5,11 @@ enum OnboardingStep: Int, CaseIterable {
     case welcome = 0
     case name = 1
     case department = 2
-    case styleSwipes = 3
-    case referralSource = 4
-    case notifications = 5
-    case complete = 6
+    case physicalAttributes = 3
+    case styleSwipes = 4
+    case referralSource = 5
+    case notifications = 6
+    case complete = 7
 }
 
 /// Main coordinator view for the onboarding flow
@@ -19,6 +20,10 @@ struct OnboardingContainerView: View {
     @State private var userData = OnboardingUserData()
     @State private var isSubmitting = false
     @State private var profileService = ProfileService.shared
+
+    // Style quiz state - kept in parent to survive view recreation
+    @State private var likedStyleIds: [String] = []
+    @State private var dislikedStyleIds: [String] = []
 
     var body: some View {
         ZStack {
@@ -34,7 +39,7 @@ struct OnboardingContainerView: View {
                 if showsProgressBar {
                     OnboardingProgressBar(
                         currentStep: progressStep,
-                        totalSteps: 3  // name, department, styleSwipes
+                        totalSteps: 4  // name, department, physicalAttributes, styleSwipes
                     )
                     .padding(.horizontal, AppSpacing.pageMargin)
                     .padding(.top, 8)
@@ -57,14 +62,26 @@ struct OnboardingContainerView: View {
                     )
                     .tag(OnboardingStep.department)
 
+                    OnboardingPhysicalAttributesView(
+                        department: userData.department,
+                        heightCategory: $userData.heightCategory,
+                        skinUndertone: $userData.skinUndertone,
+                        onContinue: { nextStep() },
+                        onSkip: { nextStep() }
+                    )
+                    .tag(OnboardingStep.physicalAttributes)
+
                     StyleSwipeView(
                         department: userData.department.isEmpty ? "womenswear" : userData.department,
-                        onComplete: { liked, disliked in
+                        likedIds: $likedStyleIds,
+                        dislikedIds: $dislikedStyleIds,
+                        onComplete: {
                             print("📋 [ONBOARDING] StyleSwipeView completed")
-                            print("📋 [ONBOARDING] Liked styles: \(liked.count)")
-                            print("📋 [ONBOARDING] Disliked styles: \(disliked.count)")
-                            userData.likedStyleIds = liked
-                            userData.dislikedStyleIds = disliked
+                            print("📋 [ONBOARDING] Liked styles: \(likedStyleIds.count)")
+                            print("📋 [ONBOARDING] Disliked styles: \(dislikedStyleIds.count)")
+                            // Copy to userData for API call
+                            userData.likedStyleIds = likedStyleIds
+                            userData.dislikedStyleIds = dislikedStyleIds
                             nextStep()
                         }
                     )
@@ -119,7 +136,7 @@ struct OnboardingContainerView: View {
 
     private var showsProgressBar: Bool {
         switch currentStep {
-        case .name, .department, .styleSwipes:
+        case .name, .department, .physicalAttributes, .styleSwipes:
             return true
         default:
             return false
@@ -131,7 +148,8 @@ struct OnboardingContainerView: View {
         switch currentStep {
         case .name: return 1
         case .department: return 2
-        case .styleSwipes: return 3
+        case .physicalAttributes: return 3
+        case .styleSwipes: return 4
         default: return 0
         }
     }
@@ -169,6 +187,8 @@ struct OnboardingContainerView: View {
         print("📋 [ONBOARDING] User data summary:")
         print("📋 [ONBOARDING]   - firstName: \(userData.firstName)")
         print("📋 [ONBOARDING]   - department: \(userData.department)")
+        print("📋 [ONBOARDING]   - heightCategory: \(userData.heightCategory ?? "nil")")
+        print("📋 [ONBOARDING]   - skinUndertone: \(userData.skinUndertone ?? "nil")")
         print("📋 [ONBOARDING]   - likedStyleIds count: \(userData.likedStyleIds.count)")
         print("📋 [ONBOARDING]   - dislikedStyleIds count: \(userData.dislikedStyleIds.count)")
         print("📋 [ONBOARDING]   - referralSource: \(userData.referralSource ?? "nil")")
@@ -193,7 +213,9 @@ struct OnboardingContainerView: View {
                     likedStyleIds: userData.likedStyleIds,
                     dislikedStyleIds: userData.dislikedStyleIds,
                     favoriteBrands: Set<String>(),  // Empty - removed from flow
-                    bodyShape: nil  // Removed from flow
+                    bodyShape: nil,  // Removed from flow
+                    heightCategory: userData.heightCategory,
+                    skinUndertone: userData.skinUndertone
                 )
 
                 print("📋 [ONBOARDING] ✅ API call successful")

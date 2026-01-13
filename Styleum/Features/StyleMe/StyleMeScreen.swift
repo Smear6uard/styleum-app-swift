@@ -25,6 +25,10 @@ struct StyleMeScreen: View {
     @State private var showEntranceCeremony = false
     @State private var entranceCeremonyComplete = false
 
+    // Pre-selected item feedback
+    @State private var showPreSelectedFeedback = false
+    @State private var preSelectedItemName: String?
+
     // MARK: - Computed State Properties
 
     private var isLoading: Bool { outfitRepo.isGenerating }
@@ -86,6 +90,20 @@ struct StyleMeScreen: View {
         .onAppear {
             withAnimation {
                 hasAppeared = true
+            }
+            // Check for pre-selected item on appear
+            checkForPreSelectedItem()
+        }
+        .onChange(of: coordinator.preSelectedWardrobeItem) { _, newItem in
+            if newItem != nil {
+                checkForPreSelectedItem()
+            }
+        }
+        .overlay(alignment: .top) {
+            if showPreSelectedFeedback, let itemName = preSelectedItemName {
+                preSelectedFeedbackView(itemName: itemName)
+                    .padding(.top, 60)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         #if os(iOS)
@@ -218,7 +236,7 @@ struct StyleMeScreen: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(isLoading ? AppColors.textMuted : AppColors.textPrimary)
-                        .cornerRadius(12)
+                        .cornerRadius(AppSpacing.radiusMd)
                 }
                 .disabled(isLoading)
                 .padding(.horizontal, 24)
@@ -315,6 +333,48 @@ struct StyleMeScreen: View {
         } catch {
             print("Failed to fetch limits: \(error)")
         }
+    }
+
+    // MARK: - Pre-Selected Item Feedback
+
+    private func checkForPreSelectedItem() {
+        if let item = coordinator.preSelectedWardrobeItem {
+            preSelectedItemName = item.itemName ?? item.category?.rawValue ?? "item"
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                showPreSelectedFeedback = true
+            }
+            HapticManager.shared.light()
+
+            // Auto-dismiss after 2.5 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    showPreSelectedFeedback = false
+                }
+                // Clear the pre-selected item after feedback is dismissed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    coordinator.preSelectedWardrobeItem = nil
+                }
+            }
+        }
+    }
+
+    private func preSelectedFeedbackView(itemName: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "tshirt.fill")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(AppColors.textPrimary)
+
+            Text("Styling \(itemName)")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(AppColors.textPrimary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .mediumShadow()
+        )
     }
 
     // MARK: - Progress Animation

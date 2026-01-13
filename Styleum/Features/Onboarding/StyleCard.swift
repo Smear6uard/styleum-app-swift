@@ -60,7 +60,7 @@ struct StyleCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(24)
             }
-            .cornerRadius(20)
+            .cornerRadius(AppSpacing.radiusXl)
             .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
         }
     }

@@ -47,7 +47,7 @@ struct DeleteAccountView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
                 .background(Color(hex: "FEF2F2"))
-                .cornerRadius(12)
+                .cornerRadius(AppSpacing.radiusMd)
 
                 // Subscription reminder
                 VStack(alignment: .leading, spacing: 8) {
@@ -66,7 +66,7 @@ struct DeleteAccountView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
                 .background(AppColors.backgroundSecondary)
-                .cornerRadius(12)
+                .cornerRadius(AppSpacing.radiusMd)
 
                 Spacer(minLength: 40)
 
@@ -87,7 +87,7 @@ struct DeleteAccountView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(Color.red)
-                    .cornerRadius(12)
+                    .cornerRadius(AppSpacing.radiusMd)
                 }
                 .disabled(isDeleting)
                 .opacity(isDeleting ? 0.7 : 1)

@@ -361,8 +361,19 @@ final class WardrobeService {
 
             // Fetch fresh data
             if let updated = try? await api.getItem(id: id) {
+                // Check if processing just completed (image now available)
+                let wasProcessing = items.first(where: { $0.id == id })?.photoUrlClean == nil
+                let isNowReady = updated.photoUrlClean != nil
+
                 if let index = items.firstIndex(where: { $0.id == id }) {
-                    items[index] = updated
+                    // Animate reveal when processing completes
+                    if wasProcessing && isNowReady {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            items[index] = updated
+                        }
+                    } else {
+                        items[index] = updated
+                    }
                 }
 
                 // Remove from pending if AI analysis is complete

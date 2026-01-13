@@ -170,7 +170,7 @@ struct XPToastView: View {
         .background(
             Capsule()
                 .fill(AppColors.black)
-                .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 4)
+                .toastShadow()
         )
         .offset(y: offset)
         .opacity(opacity)

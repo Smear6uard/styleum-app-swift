@@ -1,265 +1,266 @@
 import SwiftUI
 import Kingfisher
 
+// MARK: - Share Format
+
+enum ShareFormat {
+    case stories  // 9:16 - 1080x1920
+    case square   // 1:1 - 1080x1080
+
+    var size: CGSize {
+        switch self {
+        case .stories: return CGSize(width: 1080, height: 1920)
+        case .square: return CGSize(width: 1080, height: 1080)
+        }
+    }
+
+    var aspectRatio: CGFloat {
+        switch self {
+        case .stories: return 9 / 16
+        case .square: return 1
+        }
+    }
+}
+
 // MARK: - Outfit Share Card View
-/// A 1080x1920 pixel card designed for sharing to Instagram Stories, iMessage, etc.
+
+/// Premium, editorial share card for Gen-Z
+/// Design principles: Outfit is the star, subtle branding, fashion magazine aesthetic
 struct OutfitShareCardView: View {
     let outfit: ScoredOutfit
     let items: [WardrobeItem]
-    let occasion: String?
+    let format: ShareFormat
 
-    // Card dimensions (9:16 aspect ratio for Stories)
-    private let cardWidth: CGFloat = 1080
-    private let cardHeight: CGFloat = 1920
+    // Computed style properties
+    private var styleScore: Int {
+        outfit.score
+    }
+
+    private var headline: String {
+        outfit.headline ?? "Today's Look"
+    }
+
+    private var vibe: String {
+        outfit.vibe ?? outfit.occasion ?? "Styled for you"
+    }
+
+    // Format-dependent sizing
+    private var topPadding: CGFloat {
+        format == .stories ? 120 : 60
+    }
+
+    private var bottomPadding: CGFloat {
+        format == .stories ? 60 : 40
+    }
+
+    private var horizontalPadding: CGFloat {
+        format == .stories ? 48 : 32
+    }
+
+    private var scoreFontSize: CGFloat {
+        format == .stories ? 56 : 44
+    }
+
+    private var headlineFontSize: CGFloat {
+        format == .stories ? 36 : 28
+    }
 
     var body: some View {
         ZStack {
-            // Background gradient - dark editorial aesthetic
+            // Background - subtle warm gradient (light theme)
             LinearGradient(
-                colors: [Color(hex: "0A0A0A"), Color(hex: "1A1A1A")],
+                colors: [
+                    Color(hex: "FAFAF8"),
+                    Color(hex: "F5F3F0")
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
 
             VStack(spacing: 0) {
-                // Top branding area
-                VStack(spacing: 24) {
-                    // Styleum wordmark
-                    Text("STYLEUM")
-                        .font(.system(size: 32, weight: .bold, design: .default))
-                        .tracking(8)
-                        .foregroundColor(.white.opacity(0.9))
+                // Top spacing
+                Spacer()
+                    .frame(height: topPadding)
 
-                    // Occasion/context label
-                    if let occasion = occasion, !occasion.isEmpty {
-                        Text(occasion.uppercased())
-                            .font(.system(size: 14, weight: .medium))
-                            .tracking(3)
-                            .foregroundColor(.white.opacity(0.5))
-                    } else {
-                        Text("TODAY'S LOOK")
-                            .font(.system(size: 14, weight: .medium))
-                            .tracking(3)
-                            .foregroundColor(.white.opacity(0.5))
-                    }
-                }
-                .padding(.top, 80)
+                // Items display
+                itemsGrid
+                    .padding(.horizontal, horizontalPadding)
 
                 Spacer()
 
-                // Outfit items grid
-                OutfitShareItemsGrid(items: items)
-                    .padding(.horizontal, 60)
+                // Content section
+                VStack(spacing: 16) {
+                    // Headline
+                    Text(headline)
+                        .font(.system(size: headlineFontSize, weight: .semibold, design: .serif))
+                        .foregroundColor(Color(hex: "1A1A1A"))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+
+                    // Style score
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(styleScore)")
+                            .font(.system(size: scoreFontSize, weight: .black, design: .rounded))
+                            .foregroundColor(Color(hex: "1A1A1A"))
+
+                        Text("STYLE\nSCORE")
+                            .font(.system(size: format == .stories ? 13 : 11, weight: .semibold))
+                            .foregroundColor(Color(hex: "666666"))
+                            .multilineTextAlignment(.leading)
+                            .lineSpacing(2)
+                    }
+
+                    // Vibe tag
+                    Text(vibe.lowercased())
+                        .font(.system(size: format == .stories ? 15 : 13, weight: .medium))
+                        .foregroundColor(Color(hex: "888888"))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.black.opacity(0.05))
+                        .clipShape(Capsule())
+                }
+                .padding(.horizontal, 32)
 
                 Spacer()
+                    .frame(height: format == .stories ? 80 : 40)
 
-                // Bottom info area
-                VStack(spacing: 32) {
-                    // Score badge (if score exists)
-                    if outfit.score > 0 {
-                        OutfitScoreBadge(score: outfit.score)
-                    }
-
-                    // Vibe/headline
-                    if let headline = outfit.headline, !headline.isEmpty {
-                        Text(headline)
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .padding(.horizontal, 60)
-                    } else if let vibe = outfit.vibe, !vibe.isEmpty {
-                        Text(vibe)
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                    }
-
-                    // Date stamp
-                    Text(Date().formatted(date: .abbreviated, time: .omitted))
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white.opacity(0.4))
-
-                    // Footer branding
-                    HStack(spacing: 8) {
-                        Text("styled with")
-                            .font(.system(size: 12, weight: .regular))
-                            .foregroundColor(.white.opacity(0.3))
-                        Text("styleum")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.5))
-                    }
-                }
-                .padding(.bottom, 80)
+                // Footer with branding
+                footerView
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, bottomPadding)
             }
         }
-        .frame(width: cardWidth, height: cardHeight)
+        .frame(width: format.size.width, height: format.size.height)
     }
-}
 
-// MARK: - Outfit Share Items Grid
-/// Displays outfit items in an appealing layout based on item count
-struct OutfitShareItemsGrid: View {
-    let items: [WardrobeItem]
+    // MARK: - Items Grid
 
-    // Size constants for the share card
-    private let largeItemSize: CGFloat = 400
-    private let mediumItemSize: CGFloat = 280
-    private let smallItemSize: CGFloat = 200
-    private let spacing: CGFloat = 16
+    @ViewBuilder
+    private var itemsGrid: some View {
+        let displayItems = Array(items.prefix(4))
 
-    var body: some View {
-        let displayItems = Array(items.prefix(6))
-
-        if displayItems.isEmpty {
+        switch displayItems.count {
+        case 0:
             // Empty state placeholder
             RoundedRectangle(cornerRadius: 24)
-                .fill(Color.white.opacity(0.1))
-                .frame(width: 400, height: 520)
+                .fill(Color.black.opacity(0.05))
+                .frame(
+                    width: format == .stories ? 400 : 300,
+                    height: format == .stories ? 520 : 300
+                )
                 .overlay(
                     Image(systemName: "tshirt.fill")
                         .font(.system(size: 64))
-                        .foregroundColor(.white.opacity(0.2))
+                        .foregroundColor(Color.black.opacity(0.1))
                 )
-        } else {
-            switch displayItems.count {
-            case 1:
-                // Single large item
-                ShareItemImage(item: displayItems[0])
-                    .frame(width: largeItemSize, height: 520)
 
-            case 2:
-                // Two items stacked vertically
-                VStack(spacing: spacing) {
-                    ForEach(displayItems, id: \.id) { item in
-                        ShareItemImage(item: item)
-                            .frame(height: 300)
-                    }
-                }
-                .frame(width: largeItemSize)
+        case 1:
+            // Single large item
+            itemCard(displayItems[0])
+                .frame(
+                    maxWidth: format == .stories ? 400 : 300,
+                    maxHeight: format == .stories ? 480 : 280
+                )
 
-            case 3:
-                // One large + two small
-                HStack(alignment: .center, spacing: spacing) {
-                    ShareItemImage(item: displayItems[0])
-                        .frame(width: mediumItemSize, height: 400)
-
-                    VStack(spacing: spacing) {
-                        ShareItemImage(item: displayItems[1])
-                            .frame(width: smallItemSize, height: 192)
-                        ShareItemImage(item: displayItems[2])
-                            .frame(width: smallItemSize, height: 192)
-                    }
-                }
-
-            case 4:
-                // 2x2 grid
-                VStack(spacing: spacing) {
-                    HStack(spacing: spacing) {
-                        ShareItemImage(item: displayItems[0])
-                            .frame(width: mediumItemSize, height: 300)
-                        ShareItemImage(item: displayItems[1])
-                            .frame(width: mediumItemSize, height: 300)
-                    }
-                    HStack(spacing: spacing) {
-                        ShareItemImage(item: displayItems[2])
-                            .frame(width: mediumItemSize, height: 300)
-                        ShareItemImage(item: displayItems[3])
-                            .frame(width: mediumItemSize, height: 300)
-                    }
-                }
-
-            default:
-                // 5-6 items: asymmetric grid
-                HStack(alignment: .center, spacing: spacing) {
-                    // Left column - 2 larger items
-                    VStack(spacing: spacing) {
-                        ShareItemImage(item: displayItems[0])
-                            .frame(width: mediumItemSize, height: 280)
-                        ShareItemImage(item: displayItems[1])
-                            .frame(width: mediumItemSize, height: 280)
-                    }
-
-                    // Right column - smaller items
-                    VStack(spacing: spacing) {
-                        ForEach(Array(displayItems.dropFirst(2).prefix(3)), id: \.id) { item in
-                            ShareItemImage(item: item)
-                                .frame(width: smallItemSize, height: 180)
-                        }
-                    }
+        case 2:
+            // Two items side by side
+            HStack(spacing: 24) {
+                ForEach(displayItems) { item in
+                    itemCard(item)
                 }
             }
-        }
-    }
-}
+            .frame(maxHeight: format == .stories ? 320 : 200)
 
-// MARK: - Share Item Image
-/// Individual item image with rounded corners for the share card
-struct ShareItemImage: View {
-    let item: WardrobeItem
-
-    private var imageUrl: String? {
-        item.displayPhotoUrl
-    }
-
-    var body: some View {
-        GeometryReader { geo in
-            if let urlString = imageUrl, let url = URL(string: urlString) {
-                KFImage(url)
-                    .placeholder {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.1))
-                    }
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-            } else {
-                Rectangle()
-                    .fill(Color.white.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(
-                        Image(systemName: "photo")
-                            .font(.system(size: 32))
-                            .foregroundColor(.white.opacity(0.3))
+        case 3:
+            // Top item centered, bottom two
+            VStack(spacing: 20) {
+                itemCard(displayItems[0])
+                    .frame(
+                        maxWidth: format == .stories ? 320 : 240,
+                        maxHeight: format == .stories ? 280 : 160
                     )
+
+                HStack(spacing: 24) {
+                    ForEach(displayItems.dropFirst()) { item in
+                        itemCard(item)
+                    }
+                }
+                .frame(maxHeight: format == .stories ? 200 : 120)
             }
+
+        default: // 4+ items
+            // 2x2 grid
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 20),
+                    GridItem(.flexible(), spacing: 20)
+                ],
+                spacing: 20
+            ) {
+                ForEach(displayItems) { item in
+                    itemCard(item)
+                }
+            }
+            .frame(maxHeight: format == .stories ? 560 : 340)
+        }
+    }
+
+    private func itemCard(_ item: WardrobeItem) -> some View {
+        VStack(spacing: 12) {
+            // Item image
+            KFImage(URL(string: item.photoUrlClean ?? item.photoUrl ?? ""))
+                .placeholder {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.1))
+                }
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxHeight: format == .stories ? 280 : 180)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+
+            // Item name
+            Text(item.itemName ?? item.category?.rawValue.capitalized ?? "Item")
+                .font(.system(size: format == .stories ? 14 : 12, weight: .medium))
+                .foregroundColor(Color(hex: "666666"))
+                .lineLimit(1)
+        }
+    }
+
+    // MARK: - Footer
+
+    private var footerView: some View {
+        HStack {
+            // Hashtag
+            Text("#StyledWithStyleum")
+                .font(.system(size: format == .stories ? 14 : 12, weight: .medium))
+                .foregroundColor(Color(hex: "AAAAAA"))
+
+            Spacer()
+
+            // Logo/wordmark
+            Text("styleum")
+                .font(.system(size: format == .stories ? 18 : 14, weight: .semibold, design: .serif))
+                .foregroundColor(Color(hex: "AAAAAA"))
         }
     }
 }
 
-// MARK: - Outfit Score Badge
-/// Displays the outfit score as a circular badge
-struct OutfitScoreBadge: View {
-    let score: Int
+// MARK: - Legacy Initializer (for backward compatibility)
 
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 16, weight: .semibold))
-            Text("\(score)")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-            Text("/ 100")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.6))
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 32)
-        .padding(.vertical, 16)
-        .background(
-            Capsule()
-                .fill(Color.white.opacity(0.15))
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
-                )
-        )
+extension OutfitShareCardView {
+    /// Legacy initializer that defaults to Stories format
+    init(outfit: ScoredOutfit, items: [WardrobeItem], occasion: String?) {
+        self.outfit = outfit
+        self.items = items
+        self.format = .stories
     }
 }
 
 // MARK: - Preview
-#Preview {
+
+#Preview("Stories Format") {
     OutfitShareCardView(
         outfit: ScoredOutfit(
             id: "preview",
@@ -274,8 +275,29 @@ struct OutfitScoreBadge: View {
             vibe: "Modern Minimalist"
         ),
         items: [],
-        occasion: "Weekend brunch"
+        format: .stories
     )
     .scaleEffect(0.2)
     .frame(width: 216, height: 384)
+}
+
+#Preview("Square Format") {
+    OutfitShareCardView(
+        outfit: ScoredOutfit(
+            id: "preview",
+            wardrobeItemIds: ["1", "2"],
+            score: 92,
+            whyItWorks: "Perfect color harmony",
+            stylingTip: nil,
+            vibes: ["elegant"],
+            occasion: "Date night",
+            headline: "Date Night Ready",
+            colorHarmony: "analogous",
+            vibe: "Elegant Chic"
+        ),
+        items: [],
+        format: .square
+    )
+    .scaleEffect(0.3)
+    .frame(width: 324, height: 324)
 }

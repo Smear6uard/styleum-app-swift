@@ -11,27 +11,29 @@ struct ShareCardRenderer {
     ///   - outfit: The scored outfit to render
     ///   - items: The wardrobe items in the outfit
     ///   - occasion: Optional occasion context
+    ///   - format: The share format (Stories 9:16 or Square 1:1)
     /// - Returns: A UIImage of the rendered card, or nil if rendering fails
     static func render(
         outfit: ScoredOutfit,
         items: [WardrobeItem],
-        occasion: String? = nil
+        occasion: String? = nil,
+        format: ShareFormat = .stories
     ) -> UIImage? {
         let cardView = OutfitShareCardView(
             outfit: outfit,
             items: items,
-            occasion: occasion ?? outfit.occasion
+            format: format
         )
 
         let renderer = ImageRenderer(content: cardView)
 
-        // Render at 1x scale since we're already at 1080x1920
+        // Render at 1x scale since we're already at full resolution
         renderer.scale = 1.0
 
-        // Ensure proper rendering environment
+        // Use format-specific size
         renderer.proposedSize = ProposedViewSize(
-            width: 1080,
-            height: 1920
+            width: format.size.width,
+            height: format.size.height
         )
 
         return renderer.uiImage
@@ -42,16 +44,18 @@ struct ShareCardRenderer {
     ///   - outfit: The scored outfit to render
     ///   - items: The wardrobe items in the outfit
     ///   - occasion: Optional occasion context
+    ///   - format: The share format (Stories 9:16 or Square 1:1)
     /// - Returns: A UIImage of the rendered card, or nil if rendering fails
     static func renderAsync(
         outfit: ScoredOutfit,
         items: [WardrobeItem],
-        occasion: String? = nil
+        occasion: String? = nil,
+        format: ShareFormat = .stories
     ) async -> UIImage? {
         // Allow time for images to load via Kingfisher cache
         // In production, images should already be cached from viewing
         try? await Task.sleep(for: .milliseconds(100))
 
-        return render(outfit: outfit, items: items, occasion: occasion)
+        return render(outfit: outfit, items: items, occasion: occasion, format: format)
     }
 }

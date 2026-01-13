@@ -77,6 +77,12 @@ struct ApplyCodeSheet: View {
                                     )
                             )
                             .offset(x: shakeOffset)
+                            .submitLabel(.done)
+                            .onSubmit {
+                                if isValidFormat && !isLoading {
+                                    Task { await applyCode() }
+                                }
+                            }
 
                         if let error = errorMessage {
                             Text(error)
@@ -109,6 +115,13 @@ struct ApplyCodeSheet: View {
             }
             .padding(AppSpacing.pageMargin)
             .background(AppColors.background)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // Dismiss keyboard when tapping outside text field
+                #if canImport(UIKit)
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                #endif
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

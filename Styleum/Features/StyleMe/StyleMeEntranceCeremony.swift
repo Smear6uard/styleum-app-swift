@@ -102,49 +102,49 @@ struct StyleMeEntranceCeremony: View {
         // Soft haptic to begin
         HapticManager.shared.soft()
 
-        // Phase 1: Logo scales in (0-0.5s)
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+        // Phase 1: Logo scales in (0-0.35s) - faster spring
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
             logoScale = 1.0
             logoOpacity = 1
         }
 
-        // Phase 2: Glow expands (0.1-0.6s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.easeOut(duration: 0.5)) {
+        // Phase 2: Glow expands (0.08-0.4s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            withAnimation(.easeOut(duration: 0.32)) {
                 glowOpacity = 1
             }
             createParticleBurst()
         }
 
-        // Phase 3: Kicker fades in (0.3-0.6s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.easeOut(duration: 0.4)) {
+        // Phase 3: Kicker fades in (0.2-0.45s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.easeOut(duration: 0.25)) {
                 kickerOpacity = 1
             }
         }
 
-        // Phase 4: Title fades in (0.5-0.9s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.easeOut(duration: 0.4)) {
+        // Phase 4: Title fades in (0.35-0.6s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.easeOut(duration: 0.25)) {
                 titleOpacity = 1
             }
         }
 
-        // Phase 5: Gentle pulse (0.8-1.3s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation(.easeInOut(duration: 0.5)) {
+        // Phase 5: Gentle pulse (0.55-0.9s)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            withAnimation(.easeInOut(duration: 0.35)) {
                 pulseScale = 1.05
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                withAnimation(.easeInOut(duration: 0.3)) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     pulseScale = 1.0
                 }
             }
         }
 
-        // Phase 6: Complete ceremony (1.8s)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            withAnimation(.easeOut(duration: 0.3)) {
+        // Phase 6: Complete ceremony (1.2s total)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 isComplete = true
             }
         }

@@ -222,7 +222,7 @@ struct ProUpgradeView: View {
 
             HStack(spacing: 16) {
                 Button("Terms of Use") {
-                    if let url = URL(string: "https://styleum.app/terms") {
+                    if let url = URL(string: "https://styleum.xyz/terms") {
                         UIApplication.shared.open(url)
                     }
                 }
@@ -231,7 +231,7 @@ struct ProUpgradeView: View {
                     .foregroundStyle(AppColors.textMuted)
 
                 Button("Privacy Policy") {
-                    if let url = URL(string: "https://styleum.app/privacy") {
+                    if let url = URL(string: "https://styleum.xyz/privacy") {
                         UIApplication.shared.open(url)
                     }
                 }

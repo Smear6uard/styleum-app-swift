@@ -107,7 +107,7 @@ struct StyleMeRateLimitedView: View {
                         .padding(.horizontal, 32)
                         .padding(.vertical, 14)
                         .background(AppColors.brownSecondary)
-                        .cornerRadius(10)
+                        .cornerRadius(AppSpacing.radiusSm)
                 }
                 .padding(.top, 8)
 

@@ -60,6 +60,10 @@ enum AppColors {
     static let thinMaterial: SwiftUI.Material = .ultraThinMaterial
     static let regularMaterial: SwiftUI.Material = .regularMaterial
     static let thickMaterial: SwiftUI.Material = .thickMaterial
+
+    // Spatial Canvas (warm gradient for wardrobe/gallery views)
+    static let canvasTop = Color(hex: "FDFCFB")      // Warm white
+    static let canvasBottom = Color(hex: "F7F5F3")   // Slightly warmer
 }
 
 // MARK: - Gradient Presets

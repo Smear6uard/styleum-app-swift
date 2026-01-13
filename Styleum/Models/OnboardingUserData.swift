@@ -4,6 +4,8 @@ import Foundation
 struct OnboardingUserData {
     var firstName: String = ""
     var department: String = ""  // "womenswear" or "menswear" (single-select)
+    var heightCategory: String? = nil  // "short", "average", "tall"
+    var skinUndertone: String? = nil   // "warm", "cool", "neutral"
     var likedStyleIds: [String] = []
     var dislikedStyleIds: [String] = []
     var referralSource: String? = nil

@@ -30,6 +30,7 @@ struct AddItemSheet: View {
     @State private var uploadError: String?
     @State private var showCompletion = false
     @State private var completionMessage = ""
+    @State private var showCancelConfirmation = false
 
     // Animation states
     @State private var imageScale: CGFloat = 0.8
@@ -59,7 +60,11 @@ struct AddItemSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         HapticManager.shared.light()
-                        dismiss()
+                        if !uploadingIds.isEmpty {
+                            showCancelConfirmation = true
+                        } else {
+                            dismiss()
+                        }
                     }
                     .foregroundColor(AppColors.textSecondary)
                 }
@@ -84,15 +89,30 @@ struct AddItemSheet: View {
                     imageOpacity = 0
 
                     var newItems: [UploadItem] = []
+                    var failedCount = 0
+
                     for item in items {
-                        if let data = try? await item.loadTransferable(type: Data.self),
-                           let image = UIImage(data: data) {
-                            newItems.append(UploadItem(image: image))
+                        do {
+                            if let data = try await item.loadTransferable(type: Data.self),
+                               let image = UIImage(data: data) {
+                                newItems.append(UploadItem(image: image))
+                            } else {
+                                failedCount += 1
+                            }
+                        } catch {
+                            failedCount += 1
                         }
                     }
+
                     uploadItems = newItems
                     currentIndex = 0
-                    if !newItems.isEmpty {
+
+                    if failedCount > 0 {
+                        uploadError = failedCount == 1
+                            ? "1 photo couldn't be loaded"
+                            : "\(failedCount) photos couldn't be loaded"
+                        HapticManager.shared.error()
+                    } else if !newItems.isEmpty {
                         HapticManager.shared.medium()
                     }
                 }
@@ -103,9 +123,20 @@ struct AddItemSheet: View {
                 }
             }
         }
-        .interactiveDismissDisabled(!uploadingIds.isEmpty)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
+        .confirmationDialog(
+            "Uploads in Progress",
+            isPresented: $showCancelConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Wait for Uploads", role: .cancel) {}
+            Button("Leave Anyway", role: .destructive) {
+                dismiss()
+            }
+        } message: {
+            Text("Some items are still uploading. If you leave now, those uploads may not complete.")
+        }
     }
 
     // MARK: - Carousel View

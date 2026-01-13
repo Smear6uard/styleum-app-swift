@@ -33,7 +33,7 @@ struct TabBar: View {
                 Rectangle()
                     .fill(AppColors.background.opacity(0.85))
             }
-            .shadow(color: .black.opacity(0.04), radius: 12, x: 0, y: -4)
+            .tabBarShadow()
             .ignoresSafeArea(edges: .bottom)
         )
     }

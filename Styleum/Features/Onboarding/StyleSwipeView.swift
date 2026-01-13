@@ -3,12 +3,12 @@ import SwiftUI
 /// Step 4: Tinder-style swipe view for style preference collection
 struct StyleSwipeView: View {
     let department: String
-    let onComplete: ([String], [String]) -> Void
+    @Binding var likedIds: [String]
+    @Binding var dislikedIds: [String]
+    let onComplete: () -> Void
 
     @State private var styleImages: [StyleReferenceImage] = []
     @State private var currentIndex = 0
-    @State private var likedIds: [String] = []
-    @State private var dislikedIds: [String] = []
     @State private var offset: CGSize = .zero
     @State private var isLoading = true
 
@@ -16,23 +16,6 @@ struct StyleSwipeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Skip button
-            HStack {
-                Spacer()
-                Button("Skip") {
-                    print("🎭 [SWIPE] ========== SKIP BUTTON TAPPED ==========")
-                    print("🎭 [SWIPE] likedIds count: \(likedIds.count), array: \(likedIds)")
-                    print("🎭 [SWIPE] dislikedIds count: \(dislikedIds.count), array: \(dislikedIds)")
-                    print("🎭 [SWIPE] Calling onComplete with these arrays...")
-                    HapticManager.shared.selection()
-                    onComplete(likedIds, dislikedIds)
-                }
-                .font(AppTypography.labelMedium)
-                .foregroundColor(AppColors.textSecondary)
-            }
-            .padding(.horizontal, AppSpacing.pageMargin)
-            .padding(.top, AppSpacing.sm)
-
             // Header
             VStack(spacing: 8) {
                 // Title with italic word
@@ -187,7 +170,7 @@ struct StyleSwipeView: View {
 
             Button(action: {
                 HapticManager.shared.success()
-                onComplete(likedIds, dislikedIds)
+                onComplete()
             }) {
                 Text("Continue")
                     .font(AppTypography.labelLarge)
@@ -195,9 +178,9 @@ struct StyleSwipeView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
                     .background(Color.white)
-                    .cornerRadius(12)
+                    .cornerRadius(AppSpacing.radiusMd)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
                             .stroke(Color.black, lineWidth: 2)
                     )
             }
@@ -261,11 +244,10 @@ struct StyleSwipeView: View {
     // MARK: - Data Loading
 
     private func loadStyleImages() async {
-        // Reset state when reloading (e.g., when department changes)
+        // Reset local view state when reloading (e.g., when department changes)
+        // Note: likedIds/dislikedIds are @Binding from parent - don't reset here
         styleImages = []
         currentIndex = 0
-        likedIds = []
-        dislikedIds = []
         isLoading = true
 
         do {
@@ -307,7 +289,20 @@ struct StyleSwipeView: View {
 }
 
 #Preview {
-    StyleSwipeView(department: "womenswear") { liked, disliked in
-        print("Liked: \(liked.count), Disliked: \(disliked.count)")
+    struct PreviewWrapper: View {
+        @State private var liked: [String] = []
+        @State private var disliked: [String] = []
+
+        var body: some View {
+            StyleSwipeView(
+                department: "womenswear",
+                likedIds: $liked,
+                dislikedIds: $disliked,
+                onComplete: {
+                    print("Liked: \(liked.count), Disliked: \(disliked.count)")
+                }
+            )
+        }
     }
+    return PreviewWrapper()
 }

@@ -122,9 +122,9 @@ struct ProfileUpdate: Encodable {
     var username: String?
     var profilePhotoUrl: String?
     var bodyType: String?
-    var heightCm: Int?
+    var heightCategory: String?
     var budgetRange: String?
-    var skinTone: String?
+    var skinUndertone: String?
     var aestheticPreference: String?
     var fitPreference: String?
     var styleArchetypes: [String]?
@@ -135,9 +135,9 @@ struct ProfileUpdate: Encodable {
         case username
         case profilePhotoUrl = "profile_photo_url"
         case bodyType = "body_type"
-        case heightCm = "height_cm"
+        case heightCategory = "height_category"
         case budgetRange = "budget_range"
-        case skinTone = "skin_tone"
+        case skinUndertone = "skin_undertone"
         case aestheticPreference = "aesthetic_preference"
         case fitPreference = "fit_preference"
         case styleArchetypes = "style_archetypes"

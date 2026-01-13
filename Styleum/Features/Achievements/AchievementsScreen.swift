@@ -323,12 +323,12 @@ struct NextAchievementCard: View {
                     Rectangle()
                         .fill(AppColors.brownLight.opacity(0.2))
                         .frame(height: 4)
-                        .cornerRadius(2)
+                        .cornerRadius(AppSpacing.radiusXxs)
 
                     Rectangle()
                         .fill(AppColors.brownPrimary)
                         .frame(width: geo.size.width * achievement.progressPercent, height: 4)
-                        .cornerRadius(2)
+                        .cornerRadius(AppSpacing.radiusXxs)
                 }
             }
             .frame(height: 4)

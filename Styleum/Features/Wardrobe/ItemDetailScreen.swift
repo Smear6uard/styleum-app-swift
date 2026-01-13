@@ -477,24 +477,31 @@ struct ItemEditSheet: View {
         }
         .sheet(isPresented: $showCategoryPicker) {
             CategoryPickerSheet(itemId: itemId, currentCategory: item?.category)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showColorPicker) {
             ColorPickerSheet(itemId: itemId, currentColor: item?.primaryColor, currentColorHex: item?.colorHex)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showStylePicker) {
             StylePickerSheet(itemId: itemId, currentStyles: item?.styleVibes ?? [])
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showMaterialPicker) {
             MaterialPickerSheet(itemId: itemId, currentMaterial: item?.material)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showFormalityPicker) {
             FormalityPickerSheet(itemId: itemId, currentFormality: item?.formality)
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showOccasionsPicker) {
             OccasionsPickerSheet(itemId: itemId, currentOccasions: item?.occasions ?? [])
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showSeasonsPicker) {
             SeasonsPickerSheet(itemId: itemId, currentSeasons: item?.seasons ?? [])
+                .presentationDetents([.medium, .large])
         }
         .alert("Save Failed", isPresented: $showSaveError) {
             Button("Retry") {

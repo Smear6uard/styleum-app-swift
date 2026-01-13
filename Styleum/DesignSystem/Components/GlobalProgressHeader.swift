@@ -141,7 +141,7 @@ struct GlobalProgressHeader: View {
         .background(
             Circle()
                 .fill(AppColors.backgroundSecondary)
-                .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                .subtleShadow()
         )
     }
 

@@ -12,11 +12,18 @@ final class OutfitRepository {
 
     // Track first outfit milestone (namespaced key to avoid collisions)
     private static let firstOutfitKey = "com.sameerstudios.Styleum.hasGeneratedFirstOutfit"
+    private static let firstAutoOutfitSeenKey = "com.sameerstudios.Styleum.hasSeenFirstAutoOutfit"
 
     @ObservationIgnored
     private var hasGeneratedFirstOutfit: Bool {
         get { UserDefaults.standard.bool(forKey: Self.firstOutfitKey) }
         set { UserDefaults.standard.set(newValue, forKey: Self.firstOutfitKey) }
+    }
+
+    @ObservationIgnored
+    private var hasSeenFirstAutoOutfit: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.firstAutoOutfitSeenKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.firstAutoOutfitSeenKey) }
     }
 
     // MARK: - Pre-Generated Outfits (Free, shown on Home)
@@ -81,6 +88,16 @@ final class OutfitRepository {
                 outfitSource = "pre_generated"
                 error = nil  // Clear any previous error
                 print("🌤️ [OutfitRepo] ✅ Stored \(preGeneratedOutfits.count) pre-generated outfits")
+
+                // Check for first auto-generated outfit celebration
+                if preGen.source == "first_outfit_auto" && !hasSeenFirstAutoOutfit {
+                    print("🌤️ [OutfitRepo] 🎉 First auto-generated outfit detected!")
+                    hasSeenFirstAutoOutfit = true
+                    // Post notification after slight delay to ensure splash is done
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        NotificationCenter.default.post(name: .firstAutoOutfitReady, object: nil)
+                    }
+                }
             } else {
                 print("🌤️ [OutfitRepo] No pre-generated outfits available")
             }
@@ -338,4 +355,5 @@ enum OutfitError: LocalizedError {
 
 extension Notification.Name {
     static let newAchievementsUnlocked = Notification.Name("newAchievementsUnlocked")
+    static let firstAutoOutfitReady = Notification.Name("firstAutoOutfitReady")
 }

@@ -629,7 +629,9 @@ final class StyleumAPI {
         likedStyleIds: [String],
         dislikedStyleIds: [String],
         favoriteBrands: Set<String>,
-        bodyShape: String?
+        bodyShape: String?,
+        heightCategory: String?,
+        skinUndertone: String?
     ) async throws {
         print("🌐 [API] ========== COMPLETE ONBOARDING START ==========")
         print("🌐 [API] Endpoint: /onboarding/complete (POST)")
@@ -639,6 +641,8 @@ final class StyleumAPI {
         print("🌐 [API] dislikedStyleIds count: \(dislikedStyleIds.count)")
         print("🌐 [API] favoriteBrands: \(favoriteBrands)")
         print("🌐 [API] bodyShape: \(bodyShape ?? "nil")")
+        print("🌐 [API] heightCategory: \(heightCategory ?? "nil")")
+        print("🌐 [API] skinUndertone: \(skinUndertone ?? "nil")")
 
         let body = CompleteOnboardingRequest(
             firstName: firstName,
@@ -646,7 +650,9 @@ final class StyleumAPI {
             likedStyleIds: likedStyleIds,
             dislikedStyleIds: dislikedStyleIds,
             favoriteBrands: Array(favoriteBrands),
-            bodyShape: bodyShape
+            bodyShape: bodyShape,
+            heightCategory: heightCategory,
+            skinUndertone: skinUndertone
         )
 
         do {
@@ -724,6 +730,23 @@ final class StyleumAPI {
     func validateReferralCode(_ code: String) async throws -> ValidateReferralResponse {
         try await request(endpoint: "/referrals/validate/\(code)")
     }
+
+    // MARK: - Sharing
+
+    /// Track an outfit share for XP and achievements
+    /// - Parameters:
+    ///   - outfitId: The ID of the outfit being shared
+    ///   - platform: The platform being shared to (instagram_stories, imessage, clipboard, camera_roll, other)
+    func trackOutfitShare(outfitId: String, platform: String = "other") async throws -> ShareResponse {
+        struct ShareRequest: Encodable {
+            let platform: String
+        }
+        return try await request(
+            endpoint: "/outfits/\(outfitId)/share",
+            method: "POST",
+            body: ShareRequest(platform: platform)
+        )
+    }
 }
 
 // MARK: - Referral Response Models
@@ -775,6 +798,37 @@ struct ValidateReferralResponse: Decodable {
     enum CodingKeys: String, CodingKey {
         case valid
         case referrerName = "referrer_name"
+    }
+}
+
+// MARK: - Share Response Models
+
+struct ShareResponse: Decodable {
+    let success: Bool
+    let xpAwarded: Int
+    let totalShares: Int
+    let achievementUnlocked: ShareAchievementInfo?
+    let shareUrl: String?
+    let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case xpAwarded = "xp_awarded"
+        case totalShares = "total_shares"
+        case achievementUnlocked = "achievement_unlocked"
+        case shareUrl = "share_url"
+        case message
+    }
+}
+
+struct ShareAchievementInfo: Decodable {
+    let id: String
+    let name: String
+    let xpReward: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case xpReward = "xp_reward"
     }
 }
 
