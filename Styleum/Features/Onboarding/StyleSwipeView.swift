@@ -255,10 +255,10 @@ struct StyleSwipeView: View {
             styleImages = response.images
             isLoading = false
         } catch {
-            print("Failed to load style images: \(error)")
-            // Use placeholder images for now
-            styleImages = Self.placeholderImages
+            print("🎭 [SWIPE] ❌ Failed to load style images: \(error)")
+            // Don't use placeholders - their IDs won't match database UUIDs
             isLoading = false
+            styleImages = []  // Empty = shows completedState view
         }
     }
 
