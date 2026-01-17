@@ -127,4 +127,16 @@ extension Notification.Name {
 
     /// Posted when quick action should navigate to Wardrobe tab
     static let navigateToWardrobe = Notification.Name("navigateToWardrobe")
+
+    /// Posted when tier onboarding should be shown after onboarding completion
+    static let showTierOnboarding = Notification.Name("showTierOnboarding")
+
+    /// Posted when push notification should navigate to Achievements tab
+    static let navigateToAchievements = Notification.Name("navigateToAchievements")
+
+    /// Posted when evening confirmation notification should show the confirmation sheet
+    static let showEveningConfirmation = Notification.Name("showEveningConfirmation")
+
+    /// Posted when a shared outfit deep link is opened
+    static let navigateToSharedOutfit = Notification.Name("navigateToSharedOutfit")
 }

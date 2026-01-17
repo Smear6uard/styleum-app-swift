@@ -32,47 +32,58 @@ enum UpgradeTrigger {
 
 /// Main upgrade/paywall screen with feature list and pricing
 struct ProUpgradeView: View {
-    @Environment(\.dismiss) var dismiss
+    @Environment(AppCoordinator.self) private var coordinator
     let trigger: UpgradeTrigger
     @State private var tierManager = TierManager.shared
+    @State private var subscriptionManager = SubscriptionManager.shared
     @State private var isPurchasing = false
+    @State private var isRestoring = false
     @State private var showCelebration = false
+    @State private var showError = false
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 32) {
-                    // Header
-                    headerSection
+        ScrollView {
+            VStack(spacing: 32) {
+                // Header
+                headerSection
 
-                    // What you're missing (contextual)
-                    if tierManager.tierInfo != nil {
-                        missingSection
-                    }
-
-                    // Features list
-                    featuresSection
-
-                    // Pricing and CTA
-                    pricingSection
-
-                    // Legal footer
-                    legalFooter
+                // What you're missing (contextual)
+                if tierManager.tierInfo != nil {
+                    missingSection
                 }
-                .padding(.horizontal, AppSpacing.pageMargin)
-                .padding(.vertical, 24)
+
+                // Features list
+                featuresSection
+
+                // Pricing and CTA
+                pricingSection
+
+                // Legal footer
+                legalFooter
             }
-            .background(AppColors.background)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(AppColors.textMuted)
-                    }
+            .padding(.horizontal, AppSpacing.pageMargin)
+            .padding(.vertical, 24)
+        }
+        .background(AppColors.background)
+        .navigationTitle("Styleum Pro")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await subscriptionManager.fetchOfferings()
+        }
+        .onAppear {
+            // Track paywall viewed event
+            AnalyticsService.track(AnalyticsEvent.paywallViewed, properties: [
+                "trigger": String(describing: trigger)
+            ])
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    coordinator.pop()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(AppColors.textMuted)
                 }
             }
         }
@@ -160,9 +171,14 @@ struct ProUpgradeView: View {
     private var pricingSection: some View {
         VStack(spacing: 16) {
             VStack(spacing: 4) {
-                Text("$9.99/month")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(AppColors.textPrimary)
+                if subscriptionManager.isLoading && subscriptionManager.currentOffering == nil {
+                    ProgressView()
+                        .frame(height: 38)
+                } else {
+                    Text(subscriptionManager.monthlyPrice)
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundStyle(AppColors.textPrimary)
+                }
 
                 Text("Cancel anytime")
                     .font(.system(size: 13))
@@ -190,23 +206,37 @@ struct ProUpgradeView: View {
                 .background(AppColors.textPrimary)
                 .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
             }
-            .disabled(isPurchasing)
+            .disabled(isPurchasing || isRestoring)
 
             Button {
-                // Restore purchases
                 HapticManager.shared.light()
+                Task {
+                    await restorePurchases()
+                }
             } label: {
-                Text("Restore Purchases")
-                    .font(.system(size: 14))
-                    .foregroundStyle(AppColors.textSecondary)
+                HStack(spacing: 6) {
+                    if isRestoring {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    }
+                    Text("Restore Purchases")
+                }
+                .font(.system(size: 14))
+                .foregroundStyle(AppColors.textSecondary)
             }
+            .disabled(isPurchasing || isRestoring)
         }
         .padding(.top, 8)
         .fullScreenCover(isPresented: $showCelebration) {
             ProUpgradeCelebrationView(trigger: trigger) {
                 showCelebration = false
-                dismiss()
+                coordinator.pop()
             }
+        }
+        .alert("Something went wrong", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(subscriptionManager.error ?? "Please try again.")
         }
     }
 
@@ -248,16 +278,38 @@ struct ProUpgradeView: View {
         isPurchasing = true
         defer { isPurchasing = false }
 
-        // TODO: Implement RevenueCat purchase flow
-        // For now, simulate purchase and show celebration
-        try? await Task.sleep(for: .seconds(1))
+        let success = await subscriptionManager.purchase()
+
+        if success {
+            // Refresh tier state from backend
+            await tierManager.refresh()
+
+            HapticManager.shared.success()
+            showCelebration = true
+        } else if subscriptionManager.error != nil {
+            HapticManager.shared.error()
+            showError = true
+        }
+    }
+
+    private func restorePurchases() async {
+        isRestoring = true
+        defer { isRestoring = false }
+
+        let restored = await subscriptionManager.restorePurchases()
 
         // Refresh tier state from backend
         await tierManager.refresh()
 
-        // Show celebration!
-        await MainActor.run {
+        if restored {
+            HapticManager.shared.success()
             showCelebration = true
+        } else if subscriptionManager.error != nil {
+            HapticManager.shared.error()
+            showError = true
+        } else {
+            // No error but no subscription found
+            HapticManager.shared.light()
         }
     }
 }
@@ -303,13 +355,22 @@ private struct ProFeatureRow: View {
 // MARK: - Previews
 
 #Preview("From Locked Outfits") {
-    ProUpgradeView(trigger: .lockedOutfits)
+    NavigationStack {
+        ProUpgradeView(trigger: .lockedOutfits)
+            .environment(AppCoordinator())
+    }
 }
 
 #Preview("From Capsule Complete") {
-    ProUpgradeView(trigger: .capsuleComplete)
+    NavigationStack {
+        ProUpgradeView(trigger: .capsuleComplete)
+            .environment(AppCoordinator())
+    }
 }
 
 #Preview("Manual") {
-    ProUpgradeView(trigger: .manual)
+    NavigationStack {
+        ProUpgradeView(trigger: .manual)
+            .environment(AppCoordinator())
+    }
 }

@@ -1,91 +1,78 @@
 import SwiftUI
 
 /// One-time onboarding sheet explaining free tier limits to new users
+/// Minimal, editorial design aesthetic
 struct TierOnboardingSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var tierManager = TierManager.shared
     @State private var isLoading = false
 
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 0) {
             Spacer()
 
-            // Welcome header
-            VStack(spacing: 12) {
-                Text("Welcome to Styleum!")
-                    .font(.system(size: 28, weight: .bold))
+            // Editorial headline
+            VStack(spacing: 4) {
+                Text("Your Free Plan")
+                    .font(AppTypography.editorial(28, weight: .medium))
                     .foregroundStyle(AppColors.textPrimary)
 
-                Text("Here's what you can do on the free plan")
-                    .font(.system(size: 15))
-                    .foregroundStyle(AppColors.textSecondary)
+                Text("Includes")
+                    .font(AppTypography.editorialItalic(28, weight: .medium))
+                    .foregroundStyle(AppColors.textPrimary)
             }
-            .multilineTextAlignment(.center)
+            .padding(.bottom, 40)
 
-            // Free tier limits
+            // Simple bullet list - no icons
             VStack(alignment: .leading, spacing: 16) {
-                FreeLimitRow(
-                    icon: "tshirt",
-                    text: "25 wardrobe items",
-                    detail: "Add your favorite pieces"
-                )
-
-                FreeLimitRow(
-                    icon: "sparkles",
-                    text: "2 outfit suggestions daily",
-                    detail: "Get styled each morning"
-                )
-
-                FreeLimitRow(
-                    icon: "wand.and.stars",
-                    text: "10 Style Me credits/month",
-                    detail: "Let AI pick your look"
-                )
-
-                FreeLimitRow(
-                    icon: "snowflake",
-                    text: "1 streak freeze/month",
-                    detail: "Protect your progress"
-                )
+                BulletPoint("30 wardrobe items")
+                BulletPoint("2 daily outfit suggestions")
+                BulletPoint("5 Style Me credits per month")
+                BulletPoint("1 streak freeze per month")
             }
-            .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.backgroundSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
+            .padding(.horizontal, 8)
 
             Spacer()
+            Spacer()
 
-            // CTA section
-            VStack(spacing: 12) {
+            // Minimal CTA
+            VStack(spacing: 16) {
                 Button {
                     Task { await startStyling() }
                 } label: {
                     HStack {
                         if isLoading {
                             ProgressView()
-                                .tint(AppColors.background)
+                                .tint(.white)
                         } else {
-                            Text("Start Styling")
+                            Text("Continue")
+                                .font(.system(size: 16, weight: .medium))
                         }
                     }
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(AppColors.background)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
+                    .padding(.vertical, 16)
                     .background(AppColors.textPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
+                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusSm))
                 }
                 .disabled(isLoading)
 
-                Text("Upgrade anytime for unlimited access")
+                Text("Upgrade anytime")
                     .font(.system(size: 13))
                     .foregroundStyle(AppColors.textMuted)
             }
         }
         .padding(.horizontal, AppSpacing.pageMargin)
-        .padding(.vertical, 24)
+        .padding(.vertical, 32)
         .background(AppColors.background)
         .interactiveDismissDisabled()
+        .onAppear {
+            // Safety: dismiss if user is actually Pro (shouldn't happen, but defensive)
+            if tierManager.isPro {
+                dismiss()
+            }
+        }
     }
 
     private func startStyling() async {
@@ -93,34 +80,28 @@ struct TierOnboardingSheet: View {
         defer { isLoading = false }
 
         await tierManager.markOnboardingSeen()
-        HapticManager.shared.success()
+        HapticManager.shared.light()
         dismiss()
     }
 }
 
 // MARK: - Supporting Views
 
-private struct FreeLimitRow: View {
-    let icon: String
+private struct BulletPoint: View {
     let text: String
-    let detail: String
+
+    init(_ text: String) {
+        self.text = text
+    }
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(AppColors.brownPrimary)
-                .frame(width: 28)
+        HStack(alignment: .top, spacing: 12) {
+            Text("—")
+                .foregroundStyle(AppColors.textMuted)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(text)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(AppColors.textPrimary)
-
-                Text(detail)
-                    .font(.system(size: 13))
-                    .foregroundStyle(AppColors.textSecondary)
-            }
+            Text(text)
+                .font(.system(size: 15))
+                .foregroundStyle(AppColors.textPrimary)
         }
     }
 }

@@ -1,6 +1,7 @@
 import Foundation
 import Supabase
 import SwiftUI
+import Sentry
 
 #if os(iOS)
 import UIKit
@@ -87,6 +88,12 @@ final class WardrobeService {
             throw WardrobeError.notAuthenticated
         }
 
+        // Sentry breadcrumb: item upload started
+        let startCrumb = Breadcrumb(level: .info, category: "item.upload")
+        startCrumb.message = "Started item upload"
+        startCrumb.data = ["category": category.rawValue]
+        SentrySDK.addBreadcrumb(startCrumb)
+
         // Content moderation check FIRST (before any upload)
         let isSafe = try await ContentModerationService.shared.isSafeForUpload(image)
         guard isSafe else {
@@ -130,6 +137,12 @@ final class WardrobeService {
 
         print("Item created with ID: \(result.item.id)")
 
+        // Sentry breadcrumb: item upload completed
+        let completeCrumb = Breadcrumb(level: .info, category: "item.upload")
+        completeCrumb.message = "Item upload completed"
+        completeCrumb.data = ["itemId": result.item.id, "category": category.rawValue]
+        SentrySDK.addBreadcrumb(completeCrumb)
+
         // 5. Add to local array with animation support
         let isFirstItem = items.isEmpty
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -140,6 +153,12 @@ final class WardrobeService {
         trackPendingItem(result.item.id)
 
         HapticManager.shared.success()
+
+        // Track item uploaded event
+        AnalyticsService.track(AnalyticsEvent.itemUploaded, properties: [
+            "category": category.rawValue,
+            "count": 1
+        ])
 
         // 6. Award gamification XP and update challenge progress
         GamificationService.shared.awardXP(5, reason: .itemAdded)
@@ -326,6 +345,7 @@ final class WardrobeService {
 
     /// Adds an item to the pending list and starts polling for AI completion
     private func trackPendingItem(_ itemId: String) {
+        print("[Polling] Tracking pending item: \(itemId)")
         pendingItemIds.insert(itemId)
         pendingItemTimestamps[itemId] = Date()
         startPollingIfNeeded()
@@ -333,7 +353,14 @@ final class WardrobeService {
 
     /// Starts the polling task if not already running
     private func startPollingIfNeeded() {
-        guard pollingTask == nil, !pendingItemIds.isEmpty else { return }
+        guard pollingTask == nil, !pendingItemIds.isEmpty else {
+            if pendingItemIds.isEmpty {
+                print("[Polling] No pending items to poll")
+            }
+            return
+        }
+
+        print("[Polling] Starting polling for \(pendingItemIds.count) pending items: \(pendingItemIds)")
 
         pollingTask = Task {
             while !pendingItemIds.isEmpty && !Task.isCancelled {
@@ -341,12 +368,14 @@ final class WardrobeService {
                 guard !Task.isCancelled else { break }
                 await refreshPendingItems()
             }
+            print("[Polling] Polling task completed - no more pending items")
             pollingTask = nil
         }
     }
 
     /// Fetches updated data for pending items and removes them when AI processing is complete
     private func refreshPendingItems() async {
+        print("[Polling] Refreshing \(pendingItemIds.count) pending items...")
         let now = Date()
         var itemsToRemove: Set<String> = []
 
@@ -376,12 +405,11 @@ final class WardrobeService {
                     }
                 }
 
-                // Remove from pending if AI analysis is complete
-                let hasAnalysis = updated.denseCaption != nil || updated.styleBucket != nil
-                let hasProcessedImage = updated.photoUrlClean != nil
-                if hasAnalysis && hasProcessedImage {
+                // Remove from pending when photoUrlClean is available (matches isProcessing logic)
+                // Note: Analysis (denseCaption/styleBucket) may arrive later, but UI shows complete once image is ready
+                if updated.photoUrlClean != nil {
                     itemsToRemove.insert(id)
-                    print("[Polling] Item \(id) AI processing complete")
+                    print("[Polling] Item \(id) processing complete - photoUrlClean available")
                 }
             }
         }
@@ -401,7 +429,16 @@ final class WardrobeService {
 
     /// Resumes polling for any pending items (call when app foregrounds)
     func resumePollingIfNeeded() {
+        print("[Polling] Resuming polling check - \(pendingItemIds.count) pending items")
         startPollingIfNeeded()
+
+        // Immediately refresh pending items when coming back to foreground
+        if !pendingItemIds.isEmpty {
+            Task {
+                print("[Polling] Immediate foreground refresh triggered")
+                await refreshPendingItems()
+            }
+        }
     }
 
     var hasEnoughForOutfits: Bool {

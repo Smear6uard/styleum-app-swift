@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		420B2F6F2F1B3C2A002B8444 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 42SENTRY012F20A00000000000 /* Sentry */; };
+		421A13022F17E79D00D3AD4F /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 421A13012F17E79D00D3AD4F /* RevenueCat */; };
+		421A13082F187CEA00D3AD4F /* StoreKitConfig.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 421A13072F187CEA00D3AD4F /* StoreKitConfig.storekit */; };
 		423F21B22F09C60E003172AD /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21B12F09C60E003172AD /* Auth */; };
 		423F21B42F09C60E003172AD /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21B32F09C60E003172AD /* Functions */; };
 		423F21B62F09C60E003172AD /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21B52F09C60E003172AD /* PostgREST */; };
@@ -17,9 +20,11 @@
 		423F21C12F09C62F003172AD /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21C02F09C62F003172AD /* GoogleSignInSwift */; };
 		423F21C42F09C648003172AD /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21C32F09C648003172AD /* Kingfisher */; };
 		423F21C72F09C692003172AD /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 423F21C62F09C692003172AD /* KeychainAccess */; };
+		42POSTHOG22F20B0000000000 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 42POSTHOG12F20B0000000000 /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		421A13072F187CEA00D3AD4F /* StoreKitConfig.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = StoreKitConfig.storekit; sourceTree = "<group>"; };
 		423F21A22F09C578003172AD /* Styleum.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Styleum.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -49,10 +54,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				420B2F6F2F1B3C2A002B8444 /* Sentry in Frameworks */,
 				423F21B62F09C60E003172AD /* PostgREST in Frameworks */,
 				423F21B42F09C60E003172AD /* Functions in Frameworks */,
 				423F21BC2F09C60E003172AD /* Supabase in Frameworks */,
 				423F21C42F09C648003172AD /* Kingfisher in Frameworks */,
+				421A13022F17E79D00D3AD4F /* RevenueCat in Frameworks */,
+				42POSTHOG22F20B0000000000 /* PostHog in Frameworks */,
 				423F21C72F09C692003172AD /* KeychainAccess in Frameworks */,
 				423F21C12F09C62F003172AD /* GoogleSignInSwift in Frameworks */,
 				423F21B22F09C60E003172AD /* Auth in Frameworks */,
@@ -68,6 +76,7 @@
 		423F21992F09C578003172AD = {
 			isa = PBXGroup;
 			children = (
+				421A13072F187CEA00D3AD4F /* StoreKitConfig.storekit */,
 				423F21A42F09C578003172AD /* Styleum */,
 				423F21A32F09C578003172AD /* Products */,
 			);
@@ -111,6 +120,9 @@
 				423F21C02F09C62F003172AD /* GoogleSignInSwift */,
 				423F21C32F09C648003172AD /* Kingfisher */,
 				423F21C62F09C692003172AD /* KeychainAccess */,
+				421A13012F17E79D00D3AD4F /* RevenueCat */,
+				42SENTRY012F20A00000000000 /* Sentry */,
+				42POSTHOG12F20B0000000000 /* PostHog */,
 			);
 			productName = Styleum;
 			productReference = 423F21A22F09C578003172AD /* Styleum.app */;
@@ -145,6 +157,9 @@
 				423F21BD2F09C62F003172AD /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				423F21C22F09C648003172AD /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				423F21C52F09C692003172AD /* XCRemoteSwiftPackageReference "KeychainAccess" */,
+				421A13002F17E79D00D3AD4F /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
+				42SENTRY002F20A00000000000 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				42POSTHOG02F20B0000000000 /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 423F21A32F09C578003172AD /* Products */;
@@ -161,6 +176,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				421A13082F187CEA00D3AD4F /* StoreKitConfig.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -415,6 +431,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		421A13002F17E79D00D3AD4F /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.54.0;
+			};
+		};
 		423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase-community/supabase-swift.git";
@@ -447,9 +471,30 @@
 				kind = branch;
 			};
 		};
+		42POSTHOG02F20B0000000000 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
+		42SENTRY002F20A00000000000 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		421A13012F17E79D00D3AD4F /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 421A13002F17E79D00D3AD4F /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
 		423F21B12F09C60E003172AD /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 423F21B02F09C60E003172AD /* XCRemoteSwiftPackageReference "supabase-swift" */;
@@ -499,6 +544,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 423F21C52F09C692003172AD /* XCRemoteSwiftPackageReference "KeychainAccess" */;
 			productName = KeychainAccess;
+		};
+		42POSTHOG12F20B0000000000 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 42POSTHOG02F20B0000000000 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+		42SENTRY012F20A00000000000 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 42SENTRY002F20A00000000000 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

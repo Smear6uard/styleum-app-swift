@@ -88,6 +88,9 @@ struct StyleMeScreen: View {
             await fetchLimits()
         }
         .onAppear {
+            // Clear any stale error from previous sessions or pre-gen loading
+            outfitRepo.error = nil
+
             withAnimation {
                 hasAppeared = true
             }
@@ -281,8 +284,8 @@ struct StyleMeScreen: View {
             return
         }
 
-        print("[StyleMe] Generate button tapped")
-        print("[StyleMe] tierInfo: \(String(describing: tierManager.tierInfo))")
+        print("🎨 [StyleMe] Generate button tapped")
+        print("🎨 [StyleMe] tierInfo: \(String(describing: tierManager.tierInfo))")
         print("[StyleMe] isPro: \(tierManager.isPro), creditsRemaining: \(tierManager.styleCreditsRemaining)")
         HapticManager.shared.medium()
 
@@ -312,18 +315,23 @@ struct StyleMeScreen: View {
             coordinator.dismissFullScreen()
         }
 
-        // Start background generation - skeleton will show automatically via isLoading
-        print("[StyleMe] Starting background generation...")
-        Task {
-            await outfitRepo.generateFreshOutfits(preferences: nil)
+        // IMPORTANT: Delay task creation to let fullScreenCover dismissal complete
+        // Without this, SwiftUI cancels the Task during view rebuild
+        print("🎨 [StyleMe] Waiting for view to settle...")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            print("🎨 [StyleMe] Starting background generation...")
+            Task {
+                print("🎨 [StyleMe] Task started")
+                await outfitRepo.generateFreshOutfits(preferences: nil)
 
-            // Update credits after generation completes
-            tierManager.decrementStyleCredits()
-            await tierManager.refresh()
-            await fetchLimits()
+                // Update credits after generation completes
+                tierManager.decrementStyleCredits()
+                await tierManager.refresh()
+                await fetchLimits()
 
-            print("[StyleMe] Generation complete. Outfits: \(outfitRepo.sessionOutfits.count)")
-            // Results will show inline automatically via hasOutfits state
+                print("🎨 [StyleMe] Generation complete. Outfits: \(outfitRepo.sessionOutfits.count), Error: \(String(describing: outfitRepo.error))")
+                // Results will show inline automatically via hasOutfits state
+            }
         }
     }
 

@@ -72,7 +72,7 @@ final class TierManager {
     }
 
     var hasSeenTierOnboarding: Bool {
-        tierInfo?.hasSeenTierOnboarding ?? true
+        tierInfo?.hasSeenTierOnboarding ?? false
     }
 
     // MARK: - Init

@@ -14,7 +14,7 @@ struct TabBar: View {
                         isSelected: selectedTab == tab,
                         namespace: tabNamespace
                     ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(.easeOut(duration: 0.15)) {
                             selectedTab = tab
                         }
                         HapticManager.shared.selection()
@@ -70,11 +70,10 @@ struct TabBarButton: View {
                         Image(systemName: tab.icon)
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundColor(isSelected ? .white : AppColors.textMuted)
-                            .symbolEffect(.bounce, value: isSelected)
                     }
                     .offset(y: -12)
                     .scaleEffect(isSelected ? 1.05 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                    .animation(.easeOut(duration: 0.15), value: isSelected)
                 } else {
                     // Regular tab button
                     ZStack {
@@ -89,7 +88,6 @@ struct TabBarButton: View {
                         Image(systemName: tab.icon)
                             .font(.system(size: 20, weight: isSelected ? .semibold : .medium))
                             .foregroundColor(accentColor)
-                            .symbolEffect(.bounce, value: isSelected)
                     }
                     .frame(height: 32)
                 }
@@ -115,7 +113,7 @@ private struct TabBarButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? (isStyleMe ? 0.92 : 0.95) : 1.0)
             .opacity(configuration.isPressed ? 0.85 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(.linear(duration: 0.1), value: configuration.isPressed)
     }
 }
 

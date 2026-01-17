@@ -33,38 +33,52 @@ struct RootView: View {
     }
 
     var body: some View {
+        let _ = print("🏠 [ROOT] 🔄 Body re-evaluated - isAuth: \(authService.isAuthenticated), hasUser: \(authService.currentUser != nil)")
         Group {
             if isCheckingSession {
                 // Splash screen while checking session
                 SplashView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     .onAppear {
                         print("🏠 [ROOT] 📱 SHOWING: SplashView (isCheckingSession=true)")
                     }
             } else if !authService.isAuthenticated {
                 // Not logged in - show login
                 LoginScreen()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     .onAppear {
                         print("🏠 [ROOT] 📱 SHOWING: LoginScreen")
                         print("🏠 [ROOT] Reason: isAuthenticated=false")
                     }
+            } else if authService.isAuthenticated && profileService.isLoading {
+                // Authenticated and profile is actively loading - show splash
+                SplashView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    .onAppear {
+                        print("🏠 [ROOT] 📱 SHOWING: SplashView (profile loading)")
+                        print("🏠 [ROOT] Reason: isAuthenticated=true, isLoading=true")
+                    }
             } else if !profileService.hasFetchedOnce {
                 // Authenticated but haven't attempted profile fetch yet - show splash
                 SplashView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     .onAppear {
                         print("🏠 [ROOT] 📱 SHOWING: SplashView (waiting for profile fetch)")
                         print("🏠 [ROOT] Reason: isAuthenticated=true, hasFetchedOnce=false")
                     }
             } else if shouldShowOnboarding {
-                // Profile loaded, needs onboarding
+                // Profile loaded, needs onboarding - smooth crossfade
                 OnboardingContainerView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     .environment(AppCoordinator())
                     .onAppear {
                         print("🏠 [ROOT] 📱 SHOWING: OnboardingContainerView")
                         print("🏠 [ROOT] Reason: isAuthenticated=true, shouldShowOnboarding=true")
                     }
-            } else {
+            } else if profileService.currentProfile != nil {
                 // Profile loaded, onboarding complete - show main app
                 MainTabView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     .achievementCelebration()
                     .levelUpCelebration()
                     .streakMilestoneCelebration()
@@ -75,10 +89,32 @@ struct RootView: View {
                     .xpToastOverlay()
                     .onAppear {
                         print("🏠 [ROOT] 📱 SHOWING: MainTabView")
-                        print("🏠 [ROOT] Reason: isAuthenticated=true, shouldShowOnboarding=false")
+                        print("🏠 [ROOT] Reason: isAuthenticated=true, shouldShowOnboarding=false, profile loaded")
+                    }
+            } else {
+                // Authenticated but profile still loading or failed - keep showing splash
+                // This handles: hasFetchedOnce=true, currentProfile=nil, isLoading=false
+                SplashView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    .onAppear {
+                        print("🏠 [ROOT] 📱 SHOWING: SplashView (profile state unknown)")
+                        print("🏠 [ROOT] Reason: isAuthenticated=true, hasFetchedOnce=true, currentProfile=nil")
+                        print("🏠 [ROOT] Profile error: \(profileService.error?.localizedDescription ?? "none")")
+                        // If there's an error and we've fetched, try to refetch
+                        if profileService.error != nil && profileService.hasFetchedOnce {
+                            print("🏠 [ROOT] ⚠️ Profile fetch had error, attempting retry...")
+                            Task {
+                                try? await Task.sleep(nanoseconds: 1_000_000_000) // Wait 1s before retry
+                                await profileService.fetchProfile()
+                            }
+                        }
                     }
             }
         }
+        .animation(AppAnimations.springGentle, value: isCheckingSession)
+        .animation(AppAnimations.springGentle, value: authService.isAuthenticated)
+        .animation(AppAnimations.springGentle, value: profileService.isLoading)
+        .animation(AppAnimations.springGentle, value: shouldShowOnboarding)
         .task {
             print("🏠 [ROOT] ========== ROOT TASK START ==========")
             print("🏠 [ROOT] Timestamp: \(Date())")
@@ -112,9 +148,9 @@ struct RootView: View {
                 print("🏠 [ROOT] ⚠️ User NOT authenticated - skipping profile/streak fetch")
             }
 
-            // Brief delay for splash
-            print("🏠 [ROOT] Step 5: Waiting 1.5s splash delay...")
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            // Brief delay for splash (reduced for smoother feel)
+            print("🏠 [ROOT] Step 5: Waiting 0.5s splash delay...")
+            try? await Task.sleep(nanoseconds: 500_000_000)
             print("🏠 [ROOT] Step 5 Complete.")
 
             print("🏠 [ROOT] Step 6: Setting isCheckingSession=false with animation")
@@ -124,6 +160,7 @@ struct RootView: View {
             print("🏠 [ROOT]   - onboardingVersion: \(profileService.currentProfile?.onboardingVersion.map { String($0) } ?? "nil")")
             print("🏠 [ROOT]   - shouldShowOnboarding will be: \(shouldShowOnboarding)")
 
+            // Smooth transition with spring animation
             withAnimation(AppAnimations.springGentle) {
                 isCheckingSession = false
             }
@@ -136,6 +173,25 @@ struct RootView: View {
             // Check for pending referral code when onboarding completes
             if let version = newValue, version >= 2 {
                 applyPendingReferralCodeIfNeeded()
+                
+                // Trigger tier onboarding check after onboarding completes
+                // Check if user just completed onboarding (oldValue was < 2 or nil, newValue is >= 2)
+                let wasInOnboarding = oldValue == nil || (oldValue ?? 0) < 2
+                let justCompleted = wasInOnboarding && version >= 2
+                
+                if justCompleted {
+                    print("🏠 [ROOT] ⚡️ Onboarding just completed - checking for tier onboarding")
+                    Task {
+                        let tierManager = TierManager.shared
+                        await tierManager.refresh()
+                        // Small delay for smooth transition
+                        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+                        if !tierManager.hasSeenTierOnboarding && tierManager.isFree {
+                            print("🏠 [ROOT] ✅ Posting notification to show tier onboarding")
+                            NotificationCenter.default.post(name: .showTierOnboarding, object: nil)
+                        }
+                    }
+                }
             }
         }
         .onChange(of: authService.isAuthenticated) { wasAuthenticated, isAuthenticated in
@@ -144,8 +200,11 @@ struct RootView: View {
             // User just signed in - fetch profile
             if !wasAuthenticated && isAuthenticated {
                 print("🏠 [ROOT] ⚡️ User just signed in - fetching profile...")
+                print("🏠 [ROOT] ⚡️ Current state - hasFetchedOnce: \(profileService.hasFetchedOnce), isLoading: \(profileService.isLoading), currentProfile: \(profileService.currentProfile != nil ? "exists" : "nil")")
                 Task {
+                    // Ensure we wait for profile fetch to complete
                     await profileService.fetchProfile()
+                    print("🏠 [ROOT] ⚡️ Profile fetch complete - hasFetchedOnce: \(profileService.hasFetchedOnce), currentProfile: \(profileService.currentProfile != nil ? "exists" : "nil")")
                     await streakService.fetchStats()
                     await gamificationService.loadGamificationData()
                     print("🏠 [ROOT] ⚡️ Profile and gamification fetch complete after sign-in")

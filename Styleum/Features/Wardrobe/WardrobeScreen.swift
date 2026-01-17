@@ -80,18 +80,13 @@ struct WardrobeScreen: View {
                         .font(AppTypography.editorialHeadline)
                         .foregroundColor(AppColors.textPrimary)
 
-                    // Tier-aware item counter
-                    if let usage = tierManager.tierInfo?.usage {
-                        WardrobeCounter(
-                            current: usage.wardrobeItems,
-                            limit: usage.wardrobeLimit,
-                            isPro: tierManager.isPro
-                        )
-                    } else {
-                        Text("\(wardrobeService.items.count) pieces")
-                            .font(.system(size: 14))
-                            .foregroundColor(AppColors.textSecondary)
+                    // Tier-aware subtitle - only show for free users
+                    if !tierManager.isPro, let usage = tierManager.tierInfo?.usage {
+                        Text("\(usage.wardrobeItems) of \(usage.wardrobeLimit) items")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundColor(Color(hex: "9CA3AF"))
                     }
+                    // Pro users: no subtitle shown
                 }
 
                 Spacer()
@@ -99,7 +94,7 @@ struct WardrobeScreen: View {
                 HStack(spacing: 8) {
                     // Search button
                     Button {
-                        withAnimation(AppAnimations.spring) {
+                        withAnimation(.easeOut(duration: 0.2)) {
                             isSearching.toggle()
                             if !isSearching {
                                 searchText = ""
@@ -108,10 +103,10 @@ struct WardrobeScreen: View {
                         HapticManager.shared.light()
                     } label: {
                         Image(systemName: isSearching ? "xmark" : "magnifyingglass")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(AppColors.textPrimary)
+                            .font(.system(size: 20, weight: .regular))
+                            .foregroundColor(isSearching ? AppColors.textPrimary : Color(hex: "8E8E93"))
                             .frame(width: 40, height: 40)
-                            .background(isSearching ? AppColors.backgroundTertiary : AppColors.backgroundSecondary)
+                            .background(isSearching ? AppColors.backgroundTertiary : Color.clear)
                             .clipShape(Circle())
                     }
                     .buttonStyle(ScaleButtonStyle())
@@ -135,11 +130,8 @@ struct WardrobeScreen: View {
                         }
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(AppColors.textPrimary)
-                            .frame(width: 40, height: 40)
-                            .background(AppColors.backgroundSecondary)
-                            .clipShape(Circle())
+                            .font(.system(size: 20, weight: .regular))
+                            .foregroundColor(Color(hex: "8E8E93"))
                     }
                     .accessibilityLabel("Sort wardrobe")
                     .accessibilityHint("Currently sorted by \(sortOption.rawValue)")
@@ -154,11 +146,8 @@ struct WardrobeScreen: View {
                         }
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(AppColors.textPrimary)
-                            .frame(width: 40, height: 40)
-                            .background(AppColors.backgroundSecondary)
-                            .clipShape(Circle())
+                            .font(.system(size: 20, weight: .regular))
+                            .foregroundColor(Color(hex: "8E8E93"))
                     }
                     .buttonStyle(ScaleButtonStyle())
                     .accessibilityLabel("Add item")
@@ -202,29 +191,28 @@ struct WardrobeScreen: View {
 
             // Editorial underline filters
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 24) {
+                HStack(spacing: 32) {
                     ForEach(categories, id: \.self) { category in
                         let isSelected = selectedCategories.contains(category)
                         VStack(spacing: 6) {
                             Text(category)
                                 .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
-                                .foregroundColor(isSelected ? AppColors.textPrimary : AppColors.textMuted)
+                                .foregroundColor(isSelected ? AppColors.textPrimary : Color(hex: "6B7280"))
 
-                            // Underline indicator - brown accent
+                            // Underline indicator
                             Rectangle()
                                 .fill(isSelected ? AppColors.brownPrimary : Color.clear)
-                                .frame(height: 2.5)
+                                .frame(height: 2)
                         }
                         .onTapGesture {
-                            // Single tap = select only this category
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            withAnimation(.easeOut(duration: 0.2)) {
                                 selectedCategories = [category]
                             }
                             HapticManager.shared.selection()
                         }
                         .onLongPressGesture(minimumDuration: 0.3) {
-                            // Long press = toggle in multi-select
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            // Multi-select on long press
+                            withAnimation(.easeOut(duration: 0.2)) {
                                 if selectedCategories.contains(category) {
                                     selectedCategories.remove(category)
                                     if selectedCategories.isEmpty {
@@ -239,7 +227,7 @@ struct WardrobeScreen: View {
                         }
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, AppSpacing.pageMargin)
             }
             .padding(.bottom, AppSpacing.md)
 
@@ -253,7 +241,7 @@ struct WardrobeScreen: View {
                             GridItem(.flexible(), spacing: 16)
                         ],
                         alignment: .center,
-                        spacing: 20
+                        spacing: 28
                     ) {
                         ForEach(0..<6, id: \.self) { _ in
                             WardrobeItemSkeleton()
@@ -281,7 +269,7 @@ struct WardrobeScreen: View {
                             GridItem(.flexible(), spacing: 16)
                         ],
                         alignment: .center,
-                        spacing: 20
+                        spacing: 28
                     ) {
                         ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
                             wardrobeGridItem(item: item, index: index)
@@ -311,14 +299,7 @@ struct WardrobeScreen: View {
                 }
             }
         }
-        .background(
-            LinearGradient(
-                colors: [AppColors.canvasTop, AppColors.canvasBottom],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
+        .background(Color.white.ignoresSafeArea())
         .navigationBarHidden(true)
         .task {
             await tierManager.refresh()
@@ -411,13 +392,14 @@ struct WardrobeScreen: View {
             WardrobeItemCard(item: item, namespace: wardrobeNamespace)
                 .opacity(itemsAppeared ? 1 : 0)
                 .offset(y: itemsAppeared ? 0 : 20)
-                .animation(AppAnimations.staggeredFast(index: index), value: itemsAppeared)
+                .animation(.easeOut(duration: 0.2).delay(Double(index) * 0.02), value: itemsAppeared)
 
-            // Selection overlay - matches new card radius
+            // Selection overlay - full coverage for bg-removed images
             if isSelectMode {
-                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(selectedItems.contains(item.id) ? Color.clear : Color.black.opacity(0.35))
                     .animation(AppAnimations.fast, value: selectedItems.contains(item.id))
+                    .aspectRatio(4/5, contentMode: .fit)
 
                 // Checkmark for selected
                 if selectedItems.contains(item.id) {
@@ -425,18 +407,18 @@ struct WardrobeScreen: View {
                         HStack {
                             Circle()
                                 .fill(AppColors.black)
-                                .frame(width: 28, height: 28)
+                                .frame(width: 24, height: 24)
                                 .overlay(
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 14, weight: .bold))
+                                        .font(.system(size: 12, weight: .bold))
                                         .foregroundColor(.white)
                                 )
-                                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+                                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                             Spacer()
                         }
                         Spacer()
                     }
-                    .padding(12)
+                    .padding(8)
                     .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -480,143 +462,61 @@ struct WardrobeScreen: View {
     }
 }
 
-// MARK: - Editorial Wardrobe Item Card (3:4 aspect ratio, Premium)
+// MARK: - Alta-style Wardrobe Item Card (1:1 aspect ratio, Editorial)
 struct WardrobeItemCard: View {
     let item: WardrobeItem
     var namespace: Namespace.ID
 
-    private var wearCount: Int {
-        item.wearCount ?? item.timesWorn
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Image container with parallax and wear count badge
-            GeometryReader { geo in
-                let minY = geo.frame(in: .global).minY
-                let parallaxOffset = max(-15, min(15, (minY - 300) * 0.04))
+        VStack(alignment: .leading, spacing: 8) {
+            // Square image container with subtle background
+            ZStack {
+                // Background for image container
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(hex: "F5F5F5"))
 
-                ZStack(alignment: .topTrailing) {
-                    // Show shimmer while processing, then reveal processed image
-                    if item.isProcessing {
-                        ProcessingItemOverlay()
-                            .frame(width: geo.size.width, height: geo.size.width * 4/3)
-                            .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
-                    } else if let urlString = item.displayPhotoUrl,
-                              !urlString.isEmpty,
-                              let url = URL(string: urlString) {
-                        // Use Kingfisher for proper caching, deduplication, and memory management
-                        KFImage(url)
-                            .placeholder {
-                                loadingPlaceholder
-                            }
-                            .onFailure { _ in }
-                            .fade(duration: 0.25)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: geo.size.width, height: geo.size.width * 4/3)
-                            .clipped()
-                            .offset(y: parallaxOffset)
-                            .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
-                            .transition(.opacity.combined(with: .scale(scale: 0.97)))
-                    } else {
-                        // No valid URL - show logo placeholder immediately
-                        fallbackPlaceholder
-                            .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
-                    }
-
-                    // Wear count badge - refined
-                    if wearCount > 0 {
-                        HStack(spacing: 3) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 10, weight: .semibold))
-                            Text("\(wearCount)")
-                                .font(.system(size: 11, weight: .bold))
+                if let urlString = item.displayPhotoUrl,
+                   !urlString.isEmpty,
+                   let url = URL(string: urlString) {
+                    KFImage(url)
+                        .placeholder {
+                            loadingPlaceholder
                         }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.black.opacity(0.7))
-                        .clipShape(Capsule())
-                        .padding(10)
-                    }
+                        .onFailure { _ in }
+                        .fade(duration: 0.25)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
+                        .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                } else if item.isProcessing {
+                    ProcessingItemOverlay()
+                        .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
+                } else {
+                    fallbackPlaceholder
+                        .matchedGeometryEffect(id: "itemImage-\(item.id)", in: namespace)
                 }
             }
-            .aspectRatio(3/4, contentMode: .fit)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
-            .background(
-                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-                    .fill(Color(hex: "FAFAFA"))
-            )
-            // Frame effect: hairline border
-            .overlay(
-                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-                    .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
-            )
-            // Frame effect: inner shadow (recessed look)
-            .overlay(
-                RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [Color.black.opacity(0.08), Color.clear],
-                            startPoint: .top,
-                            endPoint: .center
-                        ),
-                        lineWidth: 2
-                    )
-            )
+            .aspectRatio(4/5, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            // Item info - Bug Fix: Always show name or category fallback
-            VStack(alignment: .leading, spacing: 2) {
-                // Always show a name - use category as fallback, then "Unnamed"
-                Text(item.itemName ?? item.category?.displayName ?? "Unnamed")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppColors.textPrimary)
-                    .lineLimit(1)
-
-                // Category sublabel - always show if we have category (even without name)
-                if let category = item.category {
-                    Text(category.rawValue.capitalized)
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundColor(AppColors.textSecondary)
-                        .lineLimit(1)
-                }
-            }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 2)
+            // Item name only (editorial style)
+            Text(item.itemName ?? item.category?.displayName ?? "Item")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(AppColors.brownPrimary)
+                .lineLimit(1)
         }
-        .frame(maxWidth: .infinity)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
-        .boutiqueElevation()
     }
 
     private var loadingPlaceholder: some View {
-        CardImageSkeleton()
+        Color.clear
     }
 
-    private var errorPlaceholder: some View {
-        RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-            .fill(Color(hex: "F5F5F5"))
-            .overlay(
-                Image(systemName: "photo")
-                    .font(.system(size: 28, weight: .light))
-                    .foregroundColor(AppColors.textMuted.opacity(0.5))
-            )
-    }
-
-    // Bug Fix: Proper fallback placeholder with app logo for missing URLs
     private var fallbackPlaceholder: some View {
-        RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-            .fill(Color(hex: "F5F5F5"))
-            .overlay(
-                Image(.logo)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 40, height: 40)
-                    .opacity(0.3)
-            )
+        Image(.logo)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 28, height: 28)
+            .opacity(0.3)
     }
 }
 
@@ -626,38 +526,30 @@ struct WardrobeItemSkeleton: View {
     @State private var shimmerOffset: CGFloat = -200
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Image placeholder with shimmer
+        VStack(alignment: .leading, spacing: 8) {
+            // Square image placeholder with shimmer
             ZStack {
-                Rectangle()
-                    .fill(AppColors.backgroundSecondary)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(hex: "F5F5F5"))
 
                 // Shimmer effect
-                Rectangle()
+                RoundedRectangle(cornerRadius: 12)
                     .fill(
                         LinearGradient(
-                            colors: [.clear, .white.opacity(0.3), .clear],
+                            colors: [.clear, .white.opacity(0.4), .clear],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
                     .offset(x: shimmerOffset)
             }
-            .aspectRatio(3/4, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMd))
+            .aspectRatio(4/5, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            // Title placeholder
-            VStack(alignment: .leading, spacing: 6) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(AppColors.backgroundSecondary)
-                    .frame(height: 14)
-
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(AppColors.backgroundSecondary.opacity(0.6))
-                    .frame(width: 60, height: 10)
-            }
-            .padding(.top, 10)
-            .padding(.horizontal, 2)
+            // Text placeholder - item name only
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color(hex: "E5E5EA"))
+                .frame(width: 80, height: 12)
         }
         .onAppear {
             withAnimation(

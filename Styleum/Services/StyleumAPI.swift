@@ -17,7 +17,7 @@ final class StyleumAPI {
         self.baseURL = Config.apiBaseURL + "/api"
 
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForRequest = 90  // AI generation can take longer than 30s
         config.timeoutIntervalForResource = 300
         self.session = URLSession(configuration: config)
 
@@ -359,6 +359,7 @@ final class StyleumAPI {
         }
 
         print("🌐 [API] Calling /outfits/generate")
+        let startTime = Date()
 
         do {
             let result: GenerateOutfitsResult = try await request(
@@ -373,7 +374,8 @@ final class StyleumAPI {
                 )
             )
 
-            print("🌐 [API] ✅ Generate returned \(result.outfits.count) outfits")
+            let elapsed = Date().timeIntervalSince(startTime)
+            print("🌐 [API] ✅ Generate completed in \(String(format: "%.1f", elapsed))s, returned \(result.outfits.count) outfits")
             if let first = result.outfits.first {
                 print("🌐 [API] First outfit ID: \(first.id), wardrobeItemIds: \(first.wardrobeItemIds.count)")
             }
@@ -383,7 +385,11 @@ final class StyleumAPI {
 
             return result
         } catch {
-            print("🌐 [API] ❌ Generate failed: \(error)")
+            let elapsed = Date().timeIntervalSince(startTime)
+            print("🌐 [API] ❌ Generate failed after \(String(format: "%.1f", elapsed))s: \(error)")
+            if let urlError = error as? URLError {
+                print("🌐 [API] URLError code: \(urlError.code.rawValue) (\(urlError.code))")
+            }
             throw error
         }
     }
@@ -589,6 +595,24 @@ final class StyleumAPI {
         try await request(endpoint: "/gamification/restore-streak", method: "POST")
     }
 
+    /// Repair a broken streak by spending XP (within 24-hour window)
+    func repairStreak() async throws -> RepairStreakResponse {
+        try await request(endpoint: "/gamification/repair-streak", method: "POST")
+    }
+
+    /// Confirm daily activity for evening check-in
+    /// - Parameter response: "yes" for wore outfit, "something_else" for different outfit, "skip" for no activity
+    func confirmDay(response: String) async throws -> ConfirmDayResponse {
+        struct ConfirmRequest: Encodable {
+            let response: String
+        }
+        return try await request(
+            endpoint: "/gamification/confirm-day",
+            method: "POST",
+            body: ConfirmRequest(response: response)
+        )
+    }
+
     // MARK: - Subscription
 
     func getSubscriptionStatus() async throws -> SubscriptionStatus {
@@ -747,6 +771,11 @@ final class StyleumAPI {
             body: ShareRequest(platform: platform)
         )
     }
+
+    /// Fetch a shared outfit by its share ID (public endpoint, no auth required for viewing)
+    func getSharedOutfit(shareId: String) async throws -> SharedOutfitResponse {
+        try await request(endpoint: "/outfits/shared/\(shareId)")
+    }
 }
 
 // MARK: - Referral Response Models
@@ -832,6 +861,20 @@ struct ShareAchievementInfo: Decodable {
     }
 }
 
+struct SharedOutfitResponse: Decodable {
+    let outfit: ScoredOutfit
+    let items: [WardrobeItem]
+    let sharerName: String?
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case outfit
+        case items
+        case sharerName = "sharer_name"
+        case createdAt = "created_at"
+    }
+}
+
 // MARK: - API Error
 
 enum APIError: LocalizedError {
@@ -897,6 +940,35 @@ struct DailyLimitInfo: Decodable {
 }
 
 // Note: GamificationStats is defined in GamificationService.swift
+
+/// Response from the confirm-day endpoint for evening check-ins
+struct ConfirmDayResponse: Decodable {
+    let success: Bool
+    let message: String?
+    let streakMaintained: Bool
+    let xpAwarded: Int
+
+    enum CodingKeys: String, CodingKey {
+        case success, message
+        case streakMaintained = "streak_maintained"
+        case xpAwarded = "xp_awarded"
+    }
+}
+
+/// Response from the repair-streak endpoint
+struct RepairStreakResponse: Decodable {
+    let success: Bool
+    let xpSpent: Int
+    let restoredStreak: Int
+    let newXpTotal: Int
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case xpSpent = "xp_spent"
+        case restoredStreak = "restored_streak"
+        case newXpTotal = "new_xp_total"
+    }
+}
 
 struct WearOutfitResponse: Decodable {
     let success: Bool
@@ -990,11 +1062,37 @@ struct OutfitHistory: Decodable, Identifiable {
     let photoUrl: String?
 }
 
+/// An inspiration item suggested when no pre-generated outfits exist
+struct InspirationItem: Codable, Identifiable {
+    let id: String
+    let imageUrl: String?  // Optional - backend may not always include
+    let category: String
+    let itemName: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, category
+        case imageUrl = "image_url"
+        case itemName = "item_name"
+    }
+}
+
 struct GenerateOutfitsResult: Decodable {
     let outfits: [ScoredOutfit]
     let weather: WeatherContext?
     let count: Int?
     let source: String?  // "pre_generated", "on_demand", or "none"
+    // Fallback fields for when no pre-generated outfits exist
+    let fallback: Bool?
+    let fallbackMessage: String?
+    let inspirationItems: [InspirationItem]?
+    let canGenerate: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case outfits, weather, count, source, fallback
+        case fallbackMessage = "fallback_message"
+        case inspirationItems = "inspiration_items"
+        case canGenerate = "can_generate"
+    }
 }
 
 struct RegenerateOutfitResult: Decodable {

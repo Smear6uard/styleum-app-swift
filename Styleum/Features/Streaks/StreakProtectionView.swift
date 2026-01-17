@@ -10,6 +10,28 @@ struct StreakAtRiskBanner: View {
 
     @State private var pulse = false
 
+    // Live countdown timer
+    @State private var timeRemaining: TimeInterval = 0
+    @State private var timer: Timer?
+
+    /// Formats the countdown as "Xh Xm left" or "X min left!" when under 1 hour
+    private var countdownText: String {
+        let totalSeconds = Int(timeRemaining)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+
+        if hours == 0 {
+            return "\(max(1, minutes)) min left!"
+        } else {
+            return "\(hours)h \(minutes)m left"
+        }
+    }
+
+    /// Whether we're in critical time (under 1 hour)
+    private var isCritical: Bool {
+        timeRemaining < 3600
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             // Warning header
@@ -24,9 +46,10 @@ struct StreakAtRiskBanner: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
 
-                    Text("Do any activity to keep it alive")
-                        .font(.system(size: 12))
-                        .foregroundColor(AppColors.textMuted)
+                    Text(countdownText)
+                        .font(.system(size: 12, weight: isCritical ? .bold : .regular))
+                        .foregroundColor(isCritical ? AppColors.danger : AppColors.textMuted)
+                        .contentTransition(.numericText())
                 }
 
                 Spacer()
@@ -82,6 +105,26 @@ struct StreakAtRiskBanner: View {
             withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                 pulse = true
             }
+            // Start live countdown
+            updateTimeRemaining()
+            timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+                withAnimation {
+                    updateTimeRemaining()
+                }
+            }
+        }
+        .onDisappear {
+            timer?.invalidate()
+            timer = nil
+        }
+    }
+
+    /// Calculates time remaining until midnight (streak reset deadline)
+    private func updateTimeRemaining() {
+        let calendar = Calendar.current
+        let now = Date()
+        if let midnight = calendar.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0), matchingPolicy: .nextTime) {
+            timeRemaining = midnight.timeIntervalSince(now)
         }
     }
 }
@@ -370,13 +413,31 @@ struct StreakProtectionModifier: ViewModifier {
     @State private var showRestoredToast = false
     @State private var lostStreakCount = 0
 
+    // Streak repair state
+    @State private var showRepairPrompt = false
+    @State private var showRepairedCelebration = false
+    @State private var repairedStreakInfo: (streak: Int, xpSpent: Int)?
+
     func body(content: Content) -> some View {
         content
+            .task {
+                // Check if user can repair streak on appear
+                if gamificationService.canRepairStreak && gamificationService.previousStreak > 0 {
+                    showRepairPrompt = true
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .streakAtRisk)) { _ in
                 // Handled by StreakAtRiskBanner in HomeScreen
             }
             .onReceive(NotificationCenter.default.publisher(for: .streakRestored)) { _ in
                 showRestoredToast = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .streakRepaired)) { notification in
+                // Show celebration after successful repair
+                if let response = notification.object as? RepairStreakResponse {
+                    repairedStreakInfo = (streak: response.restoredStreak, xpSpent: response.xpSpent)
+                    showRepairedCelebration = true
+                }
             }
             .fullScreenCover(isPresented: $showFreezePrompt) {
                 StreakFreezePromptView(
@@ -401,6 +462,32 @@ struct StreakProtectionModifier: ViewModifier {
                     isPresented: $showStreakLost
                 )
                 .background(Color.clear)
+            }
+            .fullScreenCover(isPresented: $showRepairPrompt) {
+                StreakRepairView(
+                    onRepairComplete: { streak, xpSpent in
+                        repairedStreakInfo = (streak: streak, xpSpent: xpSpent)
+                        // Celebration will be shown via notification
+                    },
+                    onStartFresh: {
+                        // User chose not to repair - just dismiss
+                    },
+                    isPresented: $showRepairPrompt
+                )
+                .background(Color.clear)
+            }
+            .fullScreenCover(isPresented: $showRepairedCelebration) {
+                if let info = repairedStreakInfo {
+                    StreakRepairedCelebrationView(
+                        restoredStreak: info.streak,
+                        xpSpent: info.xpSpent,
+                        onContinue: {
+                            repairedStreakInfo = nil
+                        },
+                        isPresented: $showRepairedCelebration
+                    )
+                    .background(Color.clear)
+                }
             }
             .overlay(alignment: .top) {
                 StreakRestoredToast(

@@ -129,6 +129,9 @@ struct OnboardingContainerView: View {
             print("📋 [ONBOARDING] Starting at step: \(currentStep)")
             print("📋 [ONBOARDING] ProfileService.currentProfile: \(profileService.currentProfile?.id ?? "nil")")
             print("📋 [ONBOARDING] Profile onboardingVersion: \(profileService.currentProfile?.onboardingVersion.map { String($0) } ?? "nil")")
+
+            // Track onboarding started
+            AnalyticsService.track(AnalyticsEvent.onboardingStarted)
         }
     }
 
@@ -219,6 +222,9 @@ struct OnboardingContainerView: View {
                 )
 
                 print("📋 [ONBOARDING] ✅ API call successful")
+
+                // Track onboarding completed
+                AnalyticsService.track(AnalyticsEvent.onboardingCompleted)
 
                 // Save notification preferences
                 print("📋 [ONBOARDING] Setting up notification preferences...")

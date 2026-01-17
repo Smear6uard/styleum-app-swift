@@ -8,10 +8,13 @@
 import SwiftUI
 import GoogleSignIn
 import UserNotifications
+import RevenueCat
+import Sentry
 
 @main
 struct StyleumApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
 
     // Initialize managers at app launch
     private let supabase = SupabaseManager.shared
@@ -21,6 +24,10 @@ struct StyleumApp: App {
         // Configure Google Sign-In with client ID
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: Config.googleClientID)
         print("✅ Google Sign-In configured with client ID")
+
+        // Configure RevenueCat
+        SubscriptionManager.shared.configure()
+        print("✅ RevenueCat configured")
     }
 
     var body: some Scene {
@@ -35,10 +42,33 @@ struct StyleumApp: App {
                         return
                     }
 
+                    // Handle outfit share deep links: https://styleum.xyz/outfit/{shareId}
+                    if let shareId = Self.parseOutfitShareId(from: url) {
+                        print("🔗 [Share] Opening shared outfit: \(shareId)")
+                        NotificationCenter.default.post(
+                            name: .navigateToSharedOutfit,
+                            object: nil,
+                            userInfo: ["shareId": shareId]
+                        )
+                        return
+                    }
+
                     // Handle referral deep links
                     if let code = Self.parseReferralCode(from: url) {
                         ReferralService.shared.storePendingCode(code)
                         print("📨 [Referral] Stored referral code from deep link: \(code)")
+                    }
+                }
+                .onChange(of: scenePhase) { oldPhase, newPhase in
+                    switch newPhase {
+                    case .active:
+                        print("📱 [APP] Scene became active - resuming polling")
+                        WardrobeService.shared.resumePollingIfNeeded()
+                    case .background, .inactive:
+                        print("📱 [APP] Scene became \(newPhase) - stopping polling")
+                        WardrobeService.shared.stopPolling()
+                    @unknown default:
+                        break
                     }
                 }
         }
@@ -65,6 +95,26 @@ struct StyleumApp: App {
 
         return nil
     }
+
+    // MARK: - Outfit Share Deep Link Parsing
+
+    /// Parses a share ID from an outfit deep link URL
+    /// Supports: https://styleum.xyz/outfit/{shareId}
+    private static func parseOutfitShareId(from url: URL) -> String? {
+        // Handle https://styleum.xyz/outfit/{shareId}
+        guard url.host == "styleum.xyz" || url.host == "www.styleum.xyz" else {
+            return nil
+        }
+
+        let pathComponents = url.pathComponents
+        guard let index = pathComponents.firstIndex(of: "outfit"),
+              index + 1 < pathComponents.count else {
+            return nil
+        }
+
+        let shareId = pathComponents[index + 1]
+        return shareId.isEmpty ? nil : shareId
+    }
 }
 
 // MARK: - AppDelegate
@@ -75,6 +125,22 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Initialize Sentry crash reporting first
+        SentrySDK.start { options in
+            options.dsn = Config.sentryDSN
+            options.tracesSampleRate = 0.1
+            options.enableAutoSessionTracking = true
+            options.attachScreenshot = true
+            options.attachViewHierarchy = true
+            #if DEBUG
+            options.debug = true
+            #endif
+        }
+        print("🔍 [SENTRY] Crash reporting initialized")
+
+        // Initialize PostHog analytics
+        AnalyticsService.configure()
+
         // Register custom fonts from asset catalog
         FontManager.registerFonts()
 
@@ -168,9 +234,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // Handle deep linking based on notification type
         if let type = userInfo["type"] as? String {
             switch type {
-            case "daily_outfit":
+            case "daily_outfit", "first_outfit", "streak_warning":
                 // Navigate to Style Me tab
                 NotificationCenter.default.post(name: .navigateToDailyOutfit, object: nil)
+            case "badge_unlock":
+                // Navigate to Achievements tab
+                NotificationCenter.default.post(name: .navigateToAchievements, object: nil)
+            case "evening_confirmation":
+                // Show evening confirmation sheet
+                NotificationCenter.default.post(name: .showEveningConfirmation, object: nil)
             default:
                 print("📱 [APP] Unknown notification type: \(type)")
             }

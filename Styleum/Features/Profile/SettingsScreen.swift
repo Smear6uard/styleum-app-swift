@@ -3,12 +3,15 @@ import SwiftUI
 struct SettingsScreen: View {
     @Environment(AppCoordinator.self) private var coordinator
     @State private var tierManager = TierManager.shared
+    @State private var subscriptionManager = SubscriptionManager.shared
     @State private var isRestoring = false
     @State private var showSignOutConfirmation = false
     @State private var isSigningOut = false
     @State private var showRestoreSuccess = false
     @State private var versionTapCount = 0
     @State private var showSignOutGlow = false
+    @State private var showProScreenshot = false
+    @State private var showRetakeStyleQuizConfirmation = false
 
     var body: some View {
         List {
@@ -35,27 +38,47 @@ struct SettingsScreen: View {
                 } trailing: {
                     EmptyView()
                 }
+
+                ListRow(
+                    title: "Retake Style Quiz",
+                    subtitle: "Update your style preferences",
+                    action: {
+                        HapticManager.shared.light()
+                        showRetakeStyleQuizConfirmation = true
+                    }
+                ) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .foregroundColor(AppColors.textSecondary)
+                } trailing: {
+                    EmptyView()
+                }
             }
 
             Section("Subscription") {
-                // Pro Status Row
-                HStack {
-                    Image(systemName: tierManager.isPro ? "checkmark.seal.fill" : "seal")
-                        .foregroundStyle(tierManager.isPro ? AppColors.success : AppColors.textMuted)
-
-                    Text(tierManager.isPro ? "Styleum Pro" : "Free Plan")
-                        .font(AppTypography.bodyMedium)
-
-                    Spacer()
-
+                // Pro Status Row - tappable for free users
+                Button {
                     if !tierManager.isPro {
-                        Button("Upgrade") {
-                            coordinator.navigate(to: .subscription)
+                        coordinator.navigate(to: .subscription)
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: tierManager.isPro ? "checkmark.seal.fill" : "seal")
+                            .foregroundStyle(tierManager.isPro ? AppColors.success : AppColors.textMuted)
+
+                        Text(tierManager.isPro ? "Styleum Pro" : "Free Plan")
+                            .font(AppTypography.bodyMedium)
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Spacer()
+
+                        if !tierManager.isPro {
+                            Text("Upgrade")
+                                .font(AppTypography.labelSmall)
+                                .foregroundStyle(AppColors.brownPrimary)
                         }
-                        .font(AppTypography.labelSmall)
-                        .foregroundStyle(AppColors.brownPrimary)
                     }
                 }
+                .buttonStyle(.plain)
                 .padding(.vertical, 4)
 
                 // Manage Subscription (Pro only)
@@ -179,6 +202,16 @@ struct SettingsScreen: View {
                 }
             }
 
+            // TEMPORARY: Screenshot button for App Store
+            Section {
+                Button {
+                    showProScreenshot = true
+                } label: {
+                    Label("Pro Screenshot", systemImage: "camera")
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            }
+
             Section {
                 // Polished Sign Out Button
                 Button {
@@ -287,6 +320,14 @@ struct SettingsScreen: View {
         } message: {
             Text("Your wardrobe will be waiting when you return. See you soon!")
         }
+        .alert("Retake Style Quiz?", isPresented: $showRetakeStyleQuizConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Retake") {
+                coordinator.presentFullScreen(.styleQuiz)
+            }
+        } message: {
+            Text("This will update your style preferences based on your new choices.")
+        }
         .overlay {
             if showRestoreSuccess {
                 VStack {
@@ -306,6 +347,9 @@ struct SettingsScreen: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .sheet(isPresented: $showProScreenshot) {
+            ProUpgradeScreenshotView()
+        }
     }
 
     private func openURL(_ urlString: String) {
@@ -323,8 +367,10 @@ struct SettingsScreen: View {
         isRestoring = true
         defer { isRestoring = false }
 
-        // TODO: Implement RevenueCat restore
-        // try await Purchases.shared.restorePurchases()
+        // Restore purchases via RevenueCat
+        _ = await subscriptionManager.restorePurchases()
+
+        // Refresh tier state from backend
         await tierManager.refresh()
 
         // Show success feedback

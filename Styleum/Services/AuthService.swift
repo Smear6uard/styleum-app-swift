@@ -2,6 +2,7 @@ import Foundation
 import Supabase
 import GoogleSignIn
 import AuthenticationServices
+import Sentry
 
 #if os(iOS)
 import UIKit
@@ -13,8 +14,13 @@ final class AuthService {
 
     private let supabase = SupabaseManager.shared.client
 
-    var currentUser: User?
-    var isAuthenticated: Bool { currentUser != nil }
+    var currentUser: Supabase.User? {
+        didSet {
+            isAuthenticated = currentUser != nil
+            print("🔐 [AUTH] ⚡️ currentUser changed - isAuthenticated: \(isAuthenticated)")
+        }
+    }
+    private(set) var isAuthenticated: Bool = false
     var isLoading = false
     var error: Error?
 
@@ -45,8 +51,19 @@ final class AuthService {
             currentUser = session.user
             print("🔐 [AUTH] ✅ currentUser set to: \(currentUser?.email ?? "nil")")
             print("🔐 [AUTH] ✅ isAuthenticated is now: \(isAuthenticated)")
+
+            // Set Sentry user context for crash reporting
+            SentrySDK.setUser(Sentry.User(userId: session.user.id.uuidString))
+
+            // Identify user in PostHog
+            AnalyticsService.identify(userId: session.user.id.uuidString)
+
+            // Link user to RevenueCat (critical for restoring purchases after reinstall)
+            await SubscriptionManager.shared.login(userId: session.user.id.uuidString)
         } catch {
             currentUser = nil
+            SentrySDK.setUser(nil)
+            AnalyticsService.reset()
             print("🔐 [AUTH] ⚠️ No existing session or error occurred")
             print("🔐 [AUTH] Error type: \(type(of: error))")
             print("🔐 [AUTH] Error description: \(error.localizedDescription)")
@@ -136,6 +153,18 @@ final class AuthService {
             print("🔐 [AUTH] ✅ currentUser set to: \(currentUser?.email ?? "nil")")
             print("🔐 [AUTH] ✅ isAuthenticated is now: \(isAuthenticated)")
 
+            // Set Sentry user context for crash reporting
+            SentrySDK.setUser(Sentry.User(userId: response.user.id.uuidString))
+
+            // Identify user and track login in PostHog
+            AnalyticsService.identify(userId: response.user.id.uuidString)
+            AnalyticsService.track(AnalyticsEvent.userLoggedIn)
+
+            // Link user to RevenueCat
+            Task {
+                await SubscriptionManager.shared.login(userId: response.user.id.uuidString)
+            }
+
             HapticManager.shared.success()
             print("🔐 [AUTH] ========== GOOGLE SIGN-IN SUCCESS ==========")
 
@@ -212,6 +241,18 @@ final class AuthService {
             currentUser = response.user
             print("🔐 [AUTH] ✅ currentUser set to: \(currentUser?.email ?? "nil")")
             print("🔐 [AUTH] ✅ isAuthenticated is now: \(isAuthenticated)")
+
+            // Set Sentry user context for crash reporting
+            SentrySDK.setUser(Sentry.User(userId: response.user.id.uuidString))
+
+            // Identify user and track login in PostHog
+            AnalyticsService.identify(userId: response.user.id.uuidString)
+            AnalyticsService.track(AnalyticsEvent.userLoggedIn)
+
+            // Link user to RevenueCat
+            Task {
+                await SubscriptionManager.shared.login(userId: response.user.id.uuidString)
+            }
 
             HapticManager.shared.success()
             print("🔐 [AUTH] ========== APPLE SIGN-IN SUCCESS ==========")
@@ -290,6 +331,19 @@ final class AuthService {
 
             currentUser = session.user
             print("🔐 [AUTH] ✅ currentUser set, isAuthenticated: \(isAuthenticated)")
+
+            // Set Sentry user context for crash reporting
+            SentrySDK.setUser(Sentry.User(userId: session.user.id.uuidString))
+
+            // Identify user and track login in PostHog
+            AnalyticsService.identify(userId: session.user.id.uuidString)
+            AnalyticsService.track(AnalyticsEvent.userLoggedIn)
+
+            // Link user to RevenueCat
+            Task {
+                await SubscriptionManager.shared.login(userId: session.user.id.uuidString)
+            }
+
             HapticManager.shared.success()
         } catch {
             print("🔐 [AUTH] ❌ Failed to verify OTP: \(error)")
@@ -317,6 +371,17 @@ final class AuthService {
         print("🔐 [AUTH] Signing out from Google...")
         GIDSignIn.sharedInstance.signOut()
         print("🔐 [AUTH] ✅ Google sign out complete")
+
+        // Logout from RevenueCat
+        print("🔐 [AUTH] Signing out from RevenueCat...")
+        await SubscriptionManager.shared.logout()
+        print("🔐 [AUTH] ✅ RevenueCat sign out complete")
+
+        // Clear Sentry user context
+        SentrySDK.setUser(nil)
+
+        // Reset PostHog user
+        AnalyticsService.reset()
 
         currentUser = nil
         print("🔐 [AUTH] ✅ currentUser set to nil")
@@ -367,11 +432,11 @@ final class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate,
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first else {
-            return UIWindow()
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+            // This shouldn't happen in a properly configured app
+            fatalError("No window scene available for Apple Sign In")
         }
-        return window
+        return windowScene.windows.first ?? UIWindow(windowScene: windowScene)
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {

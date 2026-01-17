@@ -3,6 +3,8 @@ import SwiftUI
 /// Step 1: Welcome/Splash screen - Editorial black design
 struct OnboardingWelcomeView: View {
     let onContinue: () -> Void
+    @State private var opacity: Double = 0
+    @State private var scale: CGFloat = 0.95
 
     var body: some View {
         ZStack {
@@ -15,6 +17,8 @@ struct OnboardingWelcomeView: View {
                 Text("Styleum")
                     .font(AppTypography.clashDisplay(52))
                     .foregroundColor(.white)
+                    .opacity(opacity)
+                    .scaleEffect(scale)
 
                 // Tagline - editorial serif italic
                 Text("Dress like you're already there")
@@ -22,6 +26,8 @@ struct OnboardingWelcomeView: View {
                     .italic()
                     .foregroundColor(.white.opacity(0.7))
                     .padding(.top, 12)
+                    .opacity(opacity)
+                    .offset(y: opacity == 0 ? 10 : 0)
 
                 // Data disclaimer - builds trust
                 HStack(spacing: 8) {
@@ -32,6 +38,8 @@ struct OnboardingWelcomeView: View {
                 }
                 .foregroundColor(.white.opacity(0.4))
                 .padding(.top, 24)
+                .opacity(opacity)
+                .offset(y: opacity == 0 ? 10 : 0)
 
                 Spacer()
 
@@ -51,6 +59,14 @@ struct OnboardingWelcomeView: View {
                 .buttonStyle(ScaleButtonStyle())
                 .padding(.horizontal, AppSpacing.pageMargin)
                 .padding(.bottom, AppSpacing.xl)
+                .opacity(opacity)
+                .offset(y: opacity == 0 ? 20 : 0)
+            }
+        }
+        .onAppear {
+            withAnimation(AppAnimations.springGentle.delay(0.1)) {
+                opacity = 1
+                scale = 1
             }
         }
     }

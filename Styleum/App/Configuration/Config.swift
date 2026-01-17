@@ -9,4 +9,10 @@ enum Config {
     // Hono API Backend
     static let apiBaseURL = "https://styleum-api-production.up.railway.app"
     // static let apiBaseURL = "http://localhost:3001" // Local testing
+
+    // Sentry Crash Reporting
+    static let sentryDSN = "https://65e49b18304327abaee7716b338f2bc7@o4510718342725632.ingest.us.sentry.io/4510718345478144"
+
+    // PostHog Analytics
+    static let postHogAPIKey = "phc_KwlbO7xxs0twidfpIeE8y3LYrpl23faN7tKE91kwHUN"
 }

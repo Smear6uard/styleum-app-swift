@@ -3,6 +3,8 @@ import SwiftUI
 struct MainTabView: View {
     @State private var coordinator = AppCoordinator()
     @State private var tierManager = TierManager.shared
+    @State private var profileService = ProfileService.shared
+    @AppStorage("hasShownTierOnboarding") private var hasShownTierOnboarding = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,7 +25,7 @@ struct MainTabView: View {
                 ProfileTab(coordinator: coordinator)
                     .tabTransition(isActive: coordinator.selectedTab == .profile)
             }
-            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: coordinator.selectedTab)
+            .animation(.easeOut(duration: 0.15), value: coordinator.selectedTab)
 
             // Custom tab bar
             TabBar(selectedTab: $coordinator.selectedTab)
@@ -38,10 +40,60 @@ struct MainTabView: View {
         }
         .environment(coordinator)
         .task {
+            print("📱 [MAINTAB] Task started - checking for tier onboarding")
             // Check if new free user needs tier onboarding
             await tierManager.refresh()
+            print("📱 [MAINTAB] Tier info refreshed - hasSeenTierOnboarding: \(tierManager.hasSeenTierOnboarding), isFree: \(tierManager.isFree), tierInfo exists: \(tierManager.tierInfo != nil)")
+            
+            // Only show if we have tier info loaded
+            guard tierManager.tierInfo != nil else {
+                print("📱 [MAINTAB] ⚠️ No tier info loaded yet")
+                return
+            }
+            
+            // Don't show twice per session
+            guard !hasShownTierOnboarding else {
+                print("📱 [MAINTAB] ⚠️ Already shown tier onboarding this session")
+                return
+            }
+            
+            // Check if user just completed onboarding (onboardingVersion just changed to 2)
+            let justCompletedOnboarding = profileService.currentProfile?.onboardingVersion == 2
+            
+            if justCompletedOnboarding {
+                print("📱 [MAINTAB] User just completed onboarding - waiting before showing tier onboarding")
+                // Small delay for smooth transition after onboarding
+                try? await Task.sleep(nanoseconds: 800_000_000) // 0.8s
+            }
+            
             if !tierManager.hasSeenTierOnboarding && tierManager.isFree {
+                print("📱 [MAINTAB] ✅ Showing tier onboarding")
+                hasShownTierOnboarding = true
                 coordinator.present(.tierOnboarding)
+            } else {
+                print("📱 [MAINTAB] ⚠️ Not showing tier onboarding - hasSeenTierOnboarding: \(tierManager.hasSeenTierOnboarding), isFree: \(tierManager.isFree)")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showTierOnboarding)) { _ in
+            print("📱 [MAINTAB] Received showTierOnboarding notification")
+            // Handle tier onboarding trigger from RootView after onboarding completion
+            Task {
+                print("📱 [MAINTAB] Refreshing tier info from notification...")
+                await tierManager.refresh()
+                print("📱 [MAINTAB] Tier info refreshed - hasSeenTierOnboarding: \(tierManager.hasSeenTierOnboarding), isFree: \(tierManager.isFree), hasShownTierOnboarding: \(hasShownTierOnboarding)")
+                // Small delay to ensure smooth transition
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+                // Check if user just completed onboarding - if so, ignore hasShownTierOnboarding flag
+                let justCompletedOnboarding = profileService.currentProfile?.onboardingVersion == 2
+                let shouldShow = justCompletedOnboarding ? (!tierManager.hasSeenTierOnboarding && tierManager.isFree) : (!hasShownTierOnboarding && !tierManager.hasSeenTierOnboarding && tierManager.isFree)
+                
+                if shouldShow {
+                    print("📱 [MAINTAB] ✅ Showing tier onboarding from notification")
+                    hasShownTierOnboarding = true
+                    coordinator.present(.tierOnboarding)
+                } else {
+                    print("📱 [MAINTAB] ⚠️ Not showing tier onboarding from notification - hasShownTierOnboarding: \(hasShownTierOnboarding), hasSeenTierOnboarding: \(tierManager.hasSeenTierOnboarding), isFree: \(tierManager.isFree), justCompletedOnboarding: \(justCompletedOnboarding)")
+                }
             }
         }
     }
@@ -67,6 +119,10 @@ struct MainTabView: View {
                 .presentationDragIndicator(.visible)
         case .referralCelebration(let daysEarned):
             ReferralCelebrationView(daysEarned: daysEarned)
+        case .eveningConfirmation:
+            EveningConfirmationView()
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -81,6 +137,8 @@ struct MainTabView: View {
             AIProcessingView()
         case .outfitResults:
             OutfitResultsView(isInlineMode: false)  // Modal mode - uses dismiss()
+        case .sharedOutfit(let shareId):
+            SharedOutfitView(shareId: shareId)
         }
     }
 }

@@ -466,55 +466,33 @@ struct OutfitResultsView: View {
                 .foregroundColor(AppColors.textSecondary)
             }
 
-            // Why it works
-            if !outfit.whyItWorks.isEmpty {
-                Text(outfit.whyItWorks)
+            // Why it works - only show if meaningful (not generic filler text)
+            if let explanation = outfit.whyItWorks.ifMeaningful {
+                Text(explanation)
                     .font(.system(size: 15))
                     .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
             }
 
-            // Styling tip - editorial design
-            if let tip = outfit.stylingTip, !tip.isEmpty {
+            // Styling tip - premium branded callout card
+            if let tip = outfit.stylingTip?.ifMeaningful {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("STYLING TIP")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.7))
                         .tracking(1.2)
-                        .foregroundColor(Color(hex: "94A3B8"))
 
                     Text(tip)
                         .font(.system(size: 14))
-                        .foregroundColor(.black)
+                        .foregroundColor(.white)
+                        .lineSpacing(3)
                 }
-                .padding(.top, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(Color(hex: "E2E8F0"))
-                        .frame(height: 1)
-                }
-            }
-
-            // Color harmony - editorial design
-            if let harmony = outfit.colorHarmony, !harmony.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("COLOR PALETTE")
-                        .font(.system(size: 10, weight: .medium))
-                        .tracking(1.2)
-                        .foregroundColor(Color(hex: "94A3B8"))
-
-                    Text(harmony)
-                        .font(.system(size: 14))
-                        .foregroundColor(.black)
-                }
-                .padding(.top, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(Color(hex: "E2E8F0"))
-                        .frame(height: 1)
-                }
+                .padding(16)
+                .background(AppColors.brownPrimary)
+                .cornerRadius(12)
+                .padding(.top, 8)
             }
         }
     }
@@ -533,49 +511,60 @@ struct OutfitResultsView: View {
 
     private func actionButtons(outfit: ScoredOutfit) -> some View {
         VStack(spacing: 12) {
-            // Primary: Wear This
+            // Share Look - Secondary style (prominent but not primary)
+            Button { shareOutfit(outfit) } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 15, weight: .medium))
+                    Text("Share Look")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundColor(AppColors.brownPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.white)
+                .cornerRadius(AppSpacing.radiusLg)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppSpacing.radiusLg)
+                        .stroke(AppColors.brownPrimary, lineWidth: 1.5)
+                )
+            }
+
+            // Wear This - Primary style (espresso brown filled)
             Button { wearOutfit() } label: {
                 Text("Wear This")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(AppColors.textPrimary)
+                    .background(AppColors.brownPrimary)
                     .cornerRadius(AppSpacing.radiusLg)
             }
 
-            // Secondary actions row
+            // Tertiary actions row
             HStack(spacing: 12) {
                 Button { skipOutfit() } label: {
                     Text(isLastOutfit ? "Done" : "Skip")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(AppColors.textPrimary)
+                        .foregroundColor(AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.white)
+                        .padding(.vertical, 12)
+                        .background(Color(hex: "F5F5F5"))
                         .cornerRadius(AppSpacing.radiusMd)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-                                .stroke(Color(hex: "E0E0E0"), lineWidth: 1)
-                        )
                 }
 
                 Button { showRegenerateSheet = true } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                         Text("Refresh")
                     }
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(AppColors.textPrimary)
+                    .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.white)
+                    .padding(.vertical, 12)
+                    .background(Color(hex: "F5F5F5"))
                     .cornerRadius(AppSpacing.radiusMd)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
-                            .stroke(Color(hex: "E0E0E0"), lineWidth: 1)
-                    )
                 }
             }
         }

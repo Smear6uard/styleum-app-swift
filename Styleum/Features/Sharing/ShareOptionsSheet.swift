@@ -17,6 +17,7 @@ struct ShareOptionsSheet: View {
     @State private var showSaveSuccess = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showLinkCopied = false
 
     private let api = StyleumAPI.shared
     private let gamificationService = GamificationService.shared
@@ -231,6 +232,30 @@ struct ShareOptionsSheet: View {
                 )
             }
             .disabled(isSharing || renderedImage == nil)
+
+            // Copy Link
+            Button {
+                Task {
+                    await copyLinkToClipboard()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "link.badge.plus")
+                        .font(.system(size: 16, weight: .medium))
+                    Text(showLinkCopied ? "Link Copied!" : "Copy Link")
+                        .font(AppTypography.labelLarge)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(showLinkCopied ? AppColors.brownLight.opacity(0.15) : AppColors.backgroundSecondary)
+                .foregroundColor(showLinkCopied ? AppColors.brownPrimary : AppColors.textPrimary)
+                .cornerRadius(AppSpacing.radiusMd)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppSpacing.radiusMd)
+                        .stroke(showLinkCopied ? AppColors.brownPrimary : AppColors.border, lineWidth: 1)
+                )
+            }
+            .disabled(isSharing)
         }
     }
 
@@ -372,6 +397,11 @@ struct ShareOptionsSheet: View {
             let response = try await api.trackOutfitShare(outfitId: outfit.id, platform: platform)
             print("📤 [Share] Tracked: platform=\(platform), xp=\(response.xpAwarded), total=\(response.totalShares)")
 
+            // Track outfit shared event
+            AnalyticsService.track(AnalyticsEvent.outfitShared, properties: [
+                "platform": platform
+            ])
+
             // Update gamification if XP was awarded
             if response.xpAwarded > 0 {
                 await gamificationService.loadGamificationData()
@@ -393,6 +423,43 @@ struct ShareOptionsSheet: View {
         } catch {
             print("⚠️ [Share] Failed to track: \(error)")
             // Don't block the share flow on tracking failure
+        }
+    }
+
+    private func copyLinkToClipboard() async {
+        do {
+            let response = try await api.trackOutfitShare(outfitId: outfit.id, platform: "clipboard")
+
+            if let url = response.shareUrl {
+                UIPasteboard.general.string = url
+                HapticManager.shared.success()
+
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showLinkCopied = true
+                }
+
+                // Reset after 2 seconds
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showLinkCopied = false
+                }
+
+                // Handle XP if awarded
+                if response.xpAwarded > 0 {
+                    await gamificationService.loadGamificationData()
+                    NotificationCenter.default.post(
+                        name: .xpAwarded,
+                        object: nil,
+                        userInfo: ["xp": response.xpAwarded, "action": "share"]
+                    )
+                }
+            } else {
+                errorMessage = "Share link not available yet."
+                showError = true
+            }
+        } catch {
+            errorMessage = "Could not generate share link."
+            showError = true
         }
     }
 }

@@ -74,6 +74,46 @@ final class AppCoordinator {
             }
         }
         notificationObservers.append(wardrobeObserver)
+
+        // Observe push notification: Navigate to Achievements
+        let achievementsObserver = NotificationCenter.default.addObserver(
+            forName: .navigateToAchievements,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let coordinator = self else { return }
+            Task { @MainActor in
+                coordinator.switchTab(to: .achievements)
+            }
+        }
+        notificationObservers.append(achievementsObserver)
+
+        // Observe evening confirmation push notification
+        let eveningConfirmationObserver = NotificationCenter.default.addObserver(
+            forName: .showEveningConfirmation,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let coordinator = self else { return }
+            Task { @MainActor in
+                coordinator.present(.eveningConfirmation)
+            }
+        }
+        notificationObservers.append(eveningConfirmationObserver)
+
+        // Observe shared outfit deep link
+        let sharedOutfitObserver = NotificationCenter.default.addObserver(
+            forName: .navigateToSharedOutfit,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let coordinator = self,
+                  let shareId = notification.userInfo?["shareId"] as? String else { return }
+            Task { @MainActor in
+                coordinator.presentFullScreen(.sharedOutfit(shareId: shareId))
+            }
+        }
+        notificationObservers.append(sharedOutfitObserver)
     }
 
     // Note: deinit not needed - NotificationCenter automatically removes observers
@@ -135,6 +175,7 @@ final class AppCoordinator {
         case tierOnboarding
         case applyReferralCode
         case referralCelebration(daysEarned: Int)
+        case eveningConfirmation
 
         var id: String {
             switch self {
@@ -146,16 +187,18 @@ final class AppCoordinator {
             case .tierOnboarding: return "tierOnboarding"
             case .applyReferralCode: return "applyReferralCode"
             case .referralCelebration(let days): return "referralCelebration_\(days)"
+            case .eveningConfirmation: return "eveningConfirmation"
             }
         }
     }
 
     // MARK: - Full Screen Destinations
-    enum FullScreenDestination: Identifiable {
+    enum FullScreenDestination: Identifiable, Equatable {
         case onboarding
         case styleQuiz       // Standalone style quiz for users who skipped during onboarding
         case aiProcessing
         case outfitResults
+        case sharedOutfit(shareId: String)
 
         var id: String {
             switch self {
@@ -163,6 +206,7 @@ final class AppCoordinator {
             case .styleQuiz: return "styleQuiz"
             case .aiProcessing: return "aiProcessing"
             case .outfitResults: return "outfitResults"
+            case .sharedOutfit(let shareId): return "sharedOutfit_\(shareId)"
             }
         }
     }

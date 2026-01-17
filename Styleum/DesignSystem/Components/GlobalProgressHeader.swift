@@ -10,6 +10,9 @@ struct GlobalProgressHeader: View {
     // Pulse animation for streak flame
     @State private var flamePulse = false
 
+    // Bounce animation for streak increment
+    @State private var streakBounce = false
+
     var body: some View {
         VStack(spacing: 0) {
             Button {
@@ -47,6 +50,19 @@ struct GlobalProgressHeader: View {
                 animatedProgress = newValue
             }
         }
+        .onChange(of: gamificationService.currentStreak) { oldValue, newValue in
+            if newValue > oldValue && oldValue > 0 {
+                // Streak increased - trigger bounce animation
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    streakBounce = true
+                }
+                // Reset after animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    streakBounce = false
+                }
+                HapticManager.shared.success()
+            }
+        }
     }
 
     // MARK: - Main Content
@@ -80,6 +96,8 @@ struct GlobalProgressHeader: View {
                 Text("\(gamificationService.currentStreak)")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.textPrimary)
+                    .scaleEffect(streakBounce ? 1.3 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.5), value: streakBounce)
 
                 Text("streak")
                     .font(.system(size: 9, weight: .medium))
@@ -152,13 +170,8 @@ struct GlobalProgressHeader: View {
             Divider()
 
             HStack(spacing: 0) {
-                // Today's XP
-                statItem(
-                    icon: "bolt.fill",
-                    value: "\(gamificationService.dailyXPEarned)",
-                    label: "Today's XP",
-                    color: AppColors.success
-                )
+                // Daily Goal Progress
+                dailyGoalStatItem
 
                 Divider()
                     .frame(height: 32)
@@ -197,6 +210,37 @@ struct GlobalProgressHeader: View {
             .padding(.bottom, 12)
         }
         .background(AppColors.background)
+    }
+
+    // MARK: - Daily Goal Stat Item
+
+    private var dailyGoalStatItem: some View {
+        VStack(spacing: 4) {
+            // Icon with checkmark if complete
+            ZStack {
+                Image(systemName: "target")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(gamificationService.dailyGoalComplete ? AppColors.success : AppColors.warning)
+
+                if gamificationService.dailyGoalComplete {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(AppColors.success)
+                        .offset(x: 8, y: -6)
+                }
+            }
+
+            // Progress text
+            Text("\(gamificationService.dailyXPEarned)/\(gamificationService.dailyGoalXP)")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(gamificationService.dailyGoalComplete ? AppColors.success : AppColors.textPrimary)
+
+            Text(gamificationService.dailyGoalComplete ? "Goal Done!" : "Daily Goal")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(gamificationService.dailyGoalComplete ? AppColors.success : AppColors.textMuted)
+                .textCase(.uppercase)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func statItem(icon: String, value: String, label: String, color: Color) -> some View {

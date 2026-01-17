@@ -201,21 +201,19 @@ extension View {
 
 // MARK: - Tab Transition Modifier
 
-/// Applies smooth scale, blur, and opacity transition for tab switching
+/// Applies instant opacity transition for tab switching - editorial apps feel snappy
 struct TabTransitionModifier: ViewModifier {
     let isActive: Bool
 
     func body(content: Content) -> some View {
         content
             .opacity(isActive ? 1 : 0)
-            .scaleEffect(isActive ? 1 : 0.98)
-            .blur(radius: isActive ? 0 : 2)
             .allowsHitTesting(isActive)
     }
 }
 
 extension View {
-    /// Applies tab transition effect (opacity, scale, blur)
+    /// Applies tab transition effect (opacity only - fast and clean)
     func tabTransition(isActive: Bool) -> some View {
         modifier(TabTransitionModifier(isActive: isActive))
     }

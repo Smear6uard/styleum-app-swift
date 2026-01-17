@@ -236,6 +236,22 @@ struct HomeScreen: View {
                     coordinator.presentFullScreen(.outfitResults)
                 }
             )
+        } else if outfitRepo.hasFallbackReady {
+            // Fallback UI - show inspiration items when no pre-generated outfits
+            FallbackOutfitHero(
+                message: outfitRepo.fallbackMessage ?? "Try something new from your closet today!",
+                items: outfitRepo.inspirationItems,
+                canGenerate: outfitRepo.canGenerate,
+                onGenerateNow: {
+                    HapticManager.shared.medium()
+                    coordinator.switchTab(to: .styleMe)
+                },
+                onAddItems: {
+                    HapticManager.shared.medium()
+                    coordinator.switchTab(to: .wardrobe)
+                }
+            )
+            .padding(.horizontal, AppSpacing.pageMargin)
         } else if outfitRepo.isLoading {
             SkeletonCard()
                 .frame(height: 280)
@@ -649,6 +665,128 @@ struct EmptyOutfitHero: View {
     }
 }
 
+// MARK: - Fallback Outfit Hero (when no pre-generated outfits)
+struct FallbackOutfitHero: View {
+    let message: String
+    let items: [InspirationItem]
+    let canGenerate: Bool
+    let onGenerateNow: () -> Void
+    let onAddItems: () -> Void
+
+    @State private var contentOpacity: Double = 0
+
+    var body: some View {
+        VStack(spacing: AppSpacing.lg) {
+            Spacer()
+                .frame(height: 24)
+
+            // Header
+            VStack(spacing: 10) {
+                Text("TODAY'S LOOK")
+                    .kickerStyle()
+                Text("\(message) 🌟")
+                    .font(AppTypography.editorial(22, weight: .medium))
+                    .foregroundColor(AppColors.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppSpacing.md)
+            }
+            .opacity(contentOpacity)
+
+            // Horizontal scroll of inspiration items
+            if !items.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: AppSpacing.md) {
+                        ForEach(items.prefix(4)) { item in
+                            InspirationItemCard(item: item)
+                        }
+                    }
+                    .padding(.horizontal, AppSpacing.lg)
+                }
+                .opacity(contentOpacity)
+            }
+
+            // CTA Button
+            if canGenerate {
+                Button(action: onGenerateNow) {
+                    Text("Generate Now")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(AppColors.black)
+                        .cornerRadius(AppSpacing.radiusMd)
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .padding(.horizontal, AppSpacing.lg)
+                .opacity(contentOpacity)
+            } else {
+                VStack(spacing: AppSpacing.md) {
+                    Text("Add more items to get outfit suggestions")
+                        .font(AppTypography.bodyMedium)
+                        .foregroundColor(AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+
+                    Button(action: onAddItems) {
+                        Text("Add Items")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(AppColors.black)
+                            .cornerRadius(AppSpacing.radiusMd)
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+                    .padding(.horizontal, AppSpacing.lg)
+                }
+                .opacity(contentOpacity)
+            }
+
+            Spacer()
+                .frame(height: 24)
+        }
+        .frame(maxWidth: .infinity)
+        .background(AppColors.backgroundSecondary)
+        .cornerRadius(AppSpacing.radiusLg)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
+                contentOpacity = 1
+            }
+        }
+    }
+}
+
+// MARK: - Inspiration Item Card
+struct InspirationItemCard: View {
+    let item: InspirationItem
+
+    var body: some View {
+        VStack(spacing: AppSpacing.sm) {
+            if let imageUrl = item.imageUrl, let url = URL(string: imageUrl) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    Rectangle().fill(AppColors.filterTagBg)
+                }
+                .frame(width: 80, height: 100)
+                .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusSm))
+            } else {
+                Rectangle()
+                    .fill(AppColors.filterTagBg)
+                    .frame(width: 80, height: 100)
+                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusSm))
+            }
+
+            Text(item.itemName)
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
+                .lineLimit(1)
+        }
+        .frame(width: 80)
+    }
+}
+
 // MARK: - Today's Outfit Card
 struct TodaysOutfitCard: View {
     let outfit: ScoredOutfit
@@ -674,10 +812,13 @@ struct TodaysOutfitCard: View {
                 }
             }
 
-            Text(outfit.whyItWorks)
-                .font(AppTypography.bodyMedium)
-                .foregroundColor(AppColors.textSecondary)
-                .multilineTextAlignment(.center)
+            // Only show if meaningful (not generic filler text)
+            if let explanation = outfit.whyItWorks.ifMeaningful {
+                Text(explanation)
+                    .font(AppTypography.bodyMedium)
+                    .foregroundColor(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
 
             Button {
                 Task {

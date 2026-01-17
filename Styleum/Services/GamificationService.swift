@@ -28,6 +28,14 @@ final class GamificationService {
     var streakAtRisk: Bool { !hasEngagedToday && currentStreak > 0 }
     var hoursUntilStreakLoss: Int = 24
 
+    // MARK: - Streak Repair State
+    var canRepairStreak: Bool = false
+    var previousStreak: Int = 0
+    var repairCost: Int = 500
+    var hoursUntilRepairExpires: Int = 0
+
+    var hasEnoughXPForRepair: Bool { xp >= repairCost }
+
     // MARK: - Activity History (for calendar)
 
     var activityHistory: [DayActivity] = []
@@ -183,6 +191,11 @@ final class GamificationService {
         streakFrozenToday = false
         hasEngagedToday = false
         hoursUntilStreakLoss = 24
+        // Reset repair state
+        canRepairStreak = false
+        previousStreak = 0
+        repairCost = 500
+        hoursUntilRepairExpires = 0
         activityHistory = []
         dailyChallenges = []
         challengesResetsAt = nil
@@ -237,6 +250,18 @@ final class GamificationService {
             hasEngagedToday = stats.hasEngagedToday ?? false
             streakFrozenToday = stats.streakFrozenToday ?? false
             hoursUntilStreakLoss = stats.hoursUntilStreakLoss ?? 24
+
+            // Streak repair state
+            let wasCanRepair = canRepairStreak
+            canRepairStreak = stats.canRepairStreak ?? false
+            previousStreak = stats.previousStreak ?? 0
+            repairCost = stats.repairCost ?? 500
+            hoursUntilRepairExpires = stats.hoursUntilRepairExpires ?? 0
+
+            // Track streak broken event when repair becomes available (streak was just lost)
+            if canRepairStreak && !wasCanRepair && previousStreak > 0 {
+                AnalyticsService.track(AnalyticsEvent.streakBroken)
+            }
 
             // Check for level up (use calculated level, not backend level)
             if level > oldLevel && oldLevel > 0 {
@@ -431,6 +456,33 @@ final class GamificationService {
             NotificationCenter.default.post(name: .streakRestored, object: nil)
 
             return true
+
+        } catch {
+            HapticManager.shared.error()
+            return false
+        }
+    }
+
+    // MARK: - Repair Streak (XP-based, 24-hour window)
+
+    func repairStreak() async -> Bool {
+        guard SupabaseManager.shared.currentUserId != nil else { return false }
+        guard canRepairStreak && hasEnoughXPForRepair else { return false }
+
+        do {
+            let response = try await api.repairStreak()
+
+            if response.success {
+                currentStreak = response.restoredStreak
+                xp = response.newXpTotal
+                canRepairStreak = false
+                previousStreak = 0
+
+                HapticManager.shared.streakMilestone()
+                NotificationCenter.default.post(name: .streakRepaired, object: response)
+                return true
+            }
+            return false
 
         } catch {
             HapticManager.shared.error()
@@ -713,6 +765,11 @@ struct GamificationStats: Codable {
     let hasEngagedToday: Bool?
     let streakFrozenToday: Bool?
     let hoursUntilStreakLoss: Int?
+    // Streak repair fields
+    let canRepairStreak: Bool?
+    let previousStreak: Int?
+    let repairCost: Int?
+    let hoursUntilRepairExpires: Int?
 
     enum CodingKeys: String, CodingKey {
         case currentStreak = "current_streak"
@@ -725,6 +782,10 @@ struct GamificationStats: Codable {
         case hasEngagedToday = "has_engaged_today"
         case streakFrozenToday = "streak_frozen_today"
         case hoursUntilStreakLoss = "hours_until_streak_loss"
+        case canRepairStreak = "can_repair_streak"
+        case previousStreak = "previous_streak"
+        case repairCost = "repair_cost"
+        case hoursUntilRepairExpires = "hours_until_repair_expires"
     }
 }
 
@@ -736,6 +797,7 @@ extension Notification.Name {
     static let challengeReadyToClaim = Notification.Name("challengeReadyToClaim")
     static let allChallengesComplete = Notification.Name("allChallengesComplete")
     static let streakRestored = Notification.Name("streakRestored")
+    static let streakRepaired = Notification.Name("streakRepaired")
     static let streakAtRisk = Notification.Name("streakAtRisk")
     static let streakMilestoneReached = Notification.Name("streakMilestoneReached")
 }

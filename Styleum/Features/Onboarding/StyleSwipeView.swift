@@ -11,6 +11,8 @@ struct StyleSwipeView: View {
     @State private var currentIndex = 0
     @State private var offset: CGSize = .zero
     @State private var isLoading = true
+    @GestureState private var dragOffset: CGSize = .zero
+    @GestureState private var isDragging = false
 
     private let swipeThreshold: CGFloat = 100
 
@@ -37,7 +39,7 @@ struct StyleSwipeView: View {
 
             // Progress counter
             if !styleImages.isEmpty && currentIndex < styleImages.count {
-                Text("\(min(currentIndex + 1, styleImages.count))/\(styleImages.count)")
+                Text("\(min(currentIndex + 1, 12))/12")
                     .font(AppTypography.labelMedium)
                     .foregroundColor(.secondary)
                     .padding(.top, 16)
@@ -90,36 +92,55 @@ struct StyleSwipeView: View {
         }
     }
 
-    // MARK: - Card Stack
+    // MARK: - Card Stack (Tinder-style 3-card stack)
 
     private var cardStack: some View {
         ZStack {
-            // Next card (preview)
+            // Card at index + 2 (bottommost, smallest)
+            if currentIndex + 2 < styleImages.count {
+                StyleCard(image: styleImages[currentIndex + 2])
+                    .frame(height: 460)
+                    .scaleEffect(0.9)
+                    .offset(y: 16)
+                    .allowsHitTesting(false)
+                    .drawingGroup()
+            }
+
+            // Card at index + 1 (middle)
             if currentIndex + 1 < styleImages.count {
                 StyleCard(image: styleImages[currentIndex + 1])
                     .frame(height: 480)
                     .scaleEffect(0.95)
-                    .opacity(0.5)
-                    .zIndex(0)
+                    .offset(y: 8)
+                    .allowsHitTesting(false)
+                    .drawingGroup()
             }
 
-            // Current card
-            StyleCard(image: styleImages[currentIndex])
-                .frame(height: 500)
-                .offset(offset)
-                .rotationEffect(.degrees(Double(offset.width / 20)))
-                .zIndex(1)
-                .gesture(dragGesture)
-                .overlay(swipeOverlay)
+            // Current card (top) - only one that moves
+            if currentIndex < styleImages.count {
+                let totalOffset = CGSize(
+                    width: offset.width + dragOffset.width,
+                    height: offset.height + dragOffset.height
+                )
+                StyleCard(image: styleImages[currentIndex])
+                    .frame(height: 500)
+                    .offset(totalOffset)
+                    .rotationEffect(.degrees(Double(totalOffset.width / 20)))
+                    .highPriorityGesture(dragGesture)
+                    .overlay(swipeOverlay)
+                    .drawingGroup()
+                    .animation(isDragging ? nil : AppAnimations.springSmooth, value: offset)
+                    .animation(isDragging ? nil : AppAnimations.springSmooth, value: dragOffset)
+            }
         }
         .padding(.horizontal, 24)
-        .clipped()
     }
 
     // MARK: - Swipe Overlay
 
     private var swipeOverlay: some View {
-        ZStack {
+        let totalOffsetWidth = offset.width + dragOffset.width
+        return ZStack {
             // LOVE indicator
             Text("LOVE")
                 .font(.largeTitle.weight(.black))
@@ -131,7 +152,7 @@ struct StyleSwipeView: View {
                         .stroke(Color.green, lineWidth: 4)
                 )
                 .rotationEffect(.degrees(-15))
-                .opacity(offset.width > 0 ? min(offset.width / swipeThreshold, 1) : 0)
+                .opacity(totalOffsetWidth > 0 ? min(totalOffsetWidth / swipeThreshold, 1) : 0)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(40)
 
@@ -146,7 +167,7 @@ struct StyleSwipeView: View {
                         .stroke(Color.red, lineWidth: 4)
                 )
                 .rotationEffect(.degrees(15))
-                .opacity(offset.width < 0 ? min(-offset.width / swipeThreshold, 1) : 0)
+                .opacity(totalOffsetWidth < 0 ? min(-totalOffsetWidth / swipeThreshold, 1) : 0)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 .padding(40)
         }
@@ -164,7 +185,7 @@ struct StyleSwipeView: View {
                 .font(AppTypography.headingLarge)
                 .foregroundColor(.black)
 
-            Text("You liked \(likedIds.count) looks")
+            Text("You liked \(min(likedIds.count, 12)) looks")
                 .font(.body)
                 .foregroundColor(.secondary)
 
@@ -192,17 +213,21 @@ struct StyleSwipeView: View {
     // MARK: - Drag Gesture
 
     private var dragGesture: some Gesture {
-        DragGesture()
-            .onChanged { gesture in
-                offset = gesture.translation
+        DragGesture(minimumDistance: 0)
+            .updating($dragOffset) { value, state, _ in
+                state = value.translation
+            }
+            .updating($isDragging) { _, state, _ in
+                state = true
             }
             .onEnded { gesture in
-                if gesture.translation.width > swipeThreshold {
+                let totalTranslation = offset.width + gesture.translation.width
+                if totalTranslation > swipeThreshold {
                     swipeRight()
-                } else if gesture.translation.width < -swipeThreshold {
+                } else if totalTranslation < -swipeThreshold {
                     swipeLeft()
                 } else {
-                    withAnimation(.spring()) {
+                    withAnimation(AppAnimations.springSmooth) {
                         offset = .zero
                     }
                 }
@@ -211,33 +236,61 @@ struct StyleSwipeView: View {
 
     // MARK: - Actions
 
+    private enum SwipeDirection {
+        case left, right
+    }
+
     private func swipeRight() {
         guard currentIndex < styleImages.count else { return }
+        // Ensure we don't exceed 12 likes
+        guard likedIds.count < 12 else { return }
         HapticManager.shared.medium()
         likedIds.append(styleImages[currentIndex].id)
-
-        withAnimation(.spring()) {
-            offset = CGSize(width: 500, height: 0)
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            currentIndex += 1
-            offset = .zero
-        }
+        completeSwipe(direction: .right)
     }
 
     private func swipeLeft() {
         guard currentIndex < styleImages.count else { return }
         HapticManager.shared.light()
         dislikedIds.append(styleImages[currentIndex].id)
+        completeSwipe(direction: .left)
+    }
 
-        withAnimation(.spring()) {
-            offset = CGSize(width: -500, height: 0)
+    private func completeSwipe(direction: SwipeDirection) {
+        // Use window scene bounds instead of deprecated UIScreen.main
+        let screenWidth: CGFloat
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            screenWidth = window.bounds.width
+        } else {
+            screenWidth = 390 // Fallback for previews
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            currentIndex += 1
+        // Animate card off screen (snappy 0.25s)
+        withAnimation(.easeOut(duration: 0.25)) {
+            offset = CGSize(
+                width: direction == .right ? screenWidth * 1.5 : -screenWidth * 1.5,
+                height: 0
+            )
+        }
+
+        // After animation completes, reset and advance
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            // Reset offset WITHOUT animation
             offset = .zero
+            // Advance index
+            currentIndex += 1
+            // Prefetch upcoming images
+            prefetchUpcomingImages()
+        }
+    }
+
+    private func prefetchUpcomingImages() {
+        for i in 1...3 {
+            let prefetchIndex = currentIndex + i
+            guard prefetchIndex < styleImages.count else { continue }
+            guard let url = URL(string: styleImages[prefetchIndex].imageUrl) else { continue }
+            URLSession.shared.dataTask(with: url) { _, _, _ in }.resume()
         }
     }
 
@@ -246,14 +299,18 @@ struct StyleSwipeView: View {
     private func loadStyleImages() async {
         // Reset local view state when reloading (e.g., when department changes)
         // Note: likedIds/dislikedIds are @Binding from parent - don't reset here
+        let maxImages = 12 // Limit to 12 images max
         styleImages = []
         currentIndex = 0
         isLoading = true
 
         do {
             let response = try await StyleumAPI.shared.getOnboardingStyleImages(department: department)
-            styleImages = response.images
+            // Limit to 12 images max
+            styleImages = Array(response.images.prefix(maxImages))
             isLoading = false
+            // Prefetch first batch of images for smooth swiping
+            prefetchUpcomingImages()
         } catch {
             print("🎭 [SWIPE] ❌ Failed to load style images: \(error)")
             // Don't use placeholders - their IDs won't match database UUIDs

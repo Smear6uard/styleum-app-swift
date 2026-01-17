@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import Sentry
 
 @MainActor
 @Observable
@@ -31,6 +32,12 @@ final class OutfitRepository {
     var preGeneratedOutfits: [ScoredOutfit] = []
     var preGeneratedWeather: WeatherContext?
     private var preGenCacheTimestamp: Date?
+
+    // Fallback state (when no pre-generated outfits)
+    var isFallback = false
+    var fallbackMessage: String?
+    var inspirationItems: [InspirationItem] = []
+    var canGenerate = true
 
     // MARK: - Session Outfits (Fresh generation, uses credits)
 
@@ -75,41 +82,76 @@ final class OutfitRepository {
         print("🌤️ [OutfitRepo] Loading pre-generated outfits (FREE)...")
 
         do {
-            if let preGen = try await api.getPreGeneratedOutfits(), !preGen.outfits.isEmpty {
-                print("🌤️ [OutfitRepo] ✅ API returned \(preGen.outfits.count) outfits")
-                print("🌤️ [OutfitRepo] Source: \(preGen.source ?? "unknown")")
-                if let first = preGen.outfits.first {
-                    print("🌤️ [OutfitRepo] First outfit headline: \(first.headline ?? "none")")
-                    print("🌤️ [OutfitRepo] First outfit has \(first.wardrobeItemIds.count) items")
-                }
-                preGeneratedOutfits = preGen.outfits
-                preGeneratedWeather = preGen.weather
-                preGenCacheTimestamp = Date()
-                outfitSource = "pre_generated"
-                error = nil  // Clear any previous error
-                print("🌤️ [OutfitRepo] ✅ Stored \(preGeneratedOutfits.count) pre-generated outfits")
-
-                // Check for first auto-generated outfit celebration
-                if preGen.source == "first_outfit_auto" && !hasSeenFirstAutoOutfit {
-                    print("🌤️ [OutfitRepo] 🎉 First auto-generated outfit detected!")
-                    hasSeenFirstAutoOutfit = true
-                    // Post notification after slight delay to ensure splash is done
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        NotificationCenter.default.post(name: .firstAutoOutfitReady, object: nil)
+            if let preGen = try await api.getPreGeneratedOutfits() {
+                // Check if this is a fallback response
+                if preGen.fallback == true {
+                    print("🌤️ [OutfitRepo] 📋 Got fallback response")
+                    isFallback = true
+                    fallbackMessage = preGen.fallbackMessage
+                    inspirationItems = preGen.inspirationItems ?? []
+                    canGenerate = preGen.canGenerate ?? true
+                    preGenCacheTimestamp = Date()
+                    outfitSource = "none"
+                    error = nil
+                    print("🌤️ [OutfitRepo] Fallback message: \(fallbackMessage ?? "none")")
+                    print("🌤️ [OutfitRepo] Inspiration items: \(inspirationItems.count)")
+                    print("🌤️ [OutfitRepo] Can generate: \(canGenerate)")
+                } else if !preGen.outfits.isEmpty {
+                    print("🌤️ [OutfitRepo] ✅ API returned \(preGen.outfits.count) outfits")
+                    print("🌤️ [OutfitRepo] Source: \(preGen.source ?? "unknown")")
+                    if let first = preGen.outfits.first {
+                        print("🌤️ [OutfitRepo] First outfit headline: \(first.headline ?? "none")")
+                        print("🌤️ [OutfitRepo] First outfit has \(first.wardrobeItemIds.count) items")
                     }
+                    // Clear any previous fallback state
+                    isFallback = false
+                    fallbackMessage = nil
+                    inspirationItems = []
+                    canGenerate = true
+
+                    preGeneratedOutfits = preGen.outfits
+                    preGeneratedWeather = preGen.weather
+                    preGenCacheTimestamp = Date()
+                    outfitSource = "pre_generated"
+                    error = nil  // Clear any previous error
+                    print("🌤️ [OutfitRepo] ✅ Stored \(preGeneratedOutfits.count) pre-generated outfits")
+
+                    // Track outfit generated event (pre-generated)
+                    AnalyticsService.track(AnalyticsEvent.outfitGenerated, properties: [
+                        "count": preGen.outfits.count,
+                        "source": "pre_generated"
+                    ])
+
+                    // Check for first auto-generated outfit celebration
+                    if preGen.source == "first_outfit_auto" && !hasSeenFirstAutoOutfit {
+                        print("🌤️ [OutfitRepo] 🎉 First auto-generated outfit detected!")
+                        hasSeenFirstAutoOutfit = true
+                        // Post notification after slight delay to ensure splash is done
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            NotificationCenter.default.post(name: .firstAutoOutfitReady, object: nil)
+                        }
+                    }
+                } else {
+                    print("🌤️ [OutfitRepo] No pre-generated outfits available")
                 }
             } else {
                 print("🌤️ [OutfitRepo] No pre-generated outfits available")
             }
         } catch {
             print("🌤️ [OutfitRepo] ❌ Failed to load pre-generated outfits: \(error)")
-            self.error = error  // Set error so UI can show it
+            // Don't set error - pre-gen failures shouldn't affect StyleMe screen
+            // User can still tap "Style Me" to generate fresh outfits
         }
     }
 
     /// Check if pre-generated outfits are ready to show
     var hasPreGeneratedReady: Bool {
         !preGeneratedOutfits.isEmpty && Calendar.current.isDateInToday(preGenCacheTimestamp ?? .distantPast)
+    }
+
+    /// Check if fallback state is ready to show
+    var hasFallbackReady: Bool {
+        isFallback && !inspirationItems.isEmpty
     }
 
     /// View pre-generated outfits (called from Home screen - FREE)
@@ -126,6 +168,17 @@ final class OutfitRepository {
     /// Generate fresh outfits - ALWAYS hits the API, uses credits
     func generateFreshOutfits(preferences: StylePreferences? = nil) async {
         print("🌤️ [OutfitRepo] Generating FRESH outfits (uses credit)...")
+
+        // Sentry breadcrumb: outfit generation started
+        let startCrumb = Breadcrumb(level: .info, category: "outfit.generation")
+        startCrumb.message = "Started outfit generation"
+        if let prefs = preferences {
+            startCrumb.data = [
+                "hasOccasion": prefs.occasion != nil,
+                "boldnessLevel": prefs.boldnessLevel ?? 3
+            ]
+        }
+        SentrySDK.addBreadcrumb(startCrumb)
 
         // Clear any previous error before starting new generation
         error = nil
@@ -165,11 +218,23 @@ final class OutfitRepository {
             sessionWeather = result.weather
             outfitSource = "fresh"
 
+            // Sentry breadcrumb: outfit generation completed
+            let completeCrumb = Breadcrumb(level: .info, category: "outfit.generation")
+            completeCrumb.message = "Outfit generation completed"
+            completeCrumb.data = ["outfitCount": result.outfits.count]
+            SentrySDK.addBreadcrumb(completeCrumb)
+
             if let first = sessionOutfits.first {
                 print("🌤️ [OutfitRepo] First outfit: \(first.headline ?? "no headline"), \(first.wardrobeItemIds.count) items")
             }
 
             HapticManager.shared.success()
+
+            // Track outfit generated event
+            AnalyticsService.track(AnalyticsEvent.outfitGenerated, properties: [
+                "count": result.outfits.count,
+                "source": "fresh"
+            ])
 
             // Award gamification XP and update challenge progress (+1 XP per outfit generated)
             let xpForGeneration = result.outfits.count
@@ -189,8 +254,26 @@ final class OutfitRepository {
                 }
             }
 
+        } catch is CancellationError {
+            // Swift Task was cancelled (e.g., view lifecycle)
+            print("🌤️ [OutfitRepo] ❌ Task cancelled by SwiftUI lifecycle")
+            self.error = OutfitError.generationFailed
         } catch {
+            // Detailed error logging
+            let errorType = type(of: error)
+            print("🌤️ [OutfitRepo] ❌ Generate error type: \(errorType)")
             print("🌤️ [OutfitRepo] ❌ Generate error: \(error)")
+
+            if let urlError = error as? URLError {
+                print("🌤️ [OutfitRepo] URLError code: \(urlError.code.rawValue), description: \(urlError.localizedDescription)")
+
+                // Convert cancelled/timeout errors to user-friendly message
+                if urlError.code == .cancelled || urlError.code == .timedOut {
+                    self.error = OutfitError.generationFailed
+                    return
+                }
+            }
+
             self.error = error
         }
     }
@@ -258,6 +341,9 @@ final class OutfitRepository {
 
         HapticManager.shared.success()
 
+        // Track outfit worn event
+        AnalyticsService.track(AnalyticsEvent.outfitWorn)
+
         // Award gamification XP and update challenge progress
         // Base: 10 XP for wearing, +15 XP bonus if verified with photo
         let baseXP = 10
@@ -271,6 +357,11 @@ final class OutfitRepository {
         // Handle streak update notification if needed
         if let streakUpdate = response.streakUpdate, streakUpdate.streakIncreased {
             HapticManager.shared.streakMilestone()
+
+            // Track streak incremented event
+            AnalyticsService.track(AnalyticsEvent.streakIncremented, properties: [
+                "streak_count": streakUpdate.currentStreak
+            ])
         }
 
         // Handle new achievements if any
