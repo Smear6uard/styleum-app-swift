@@ -70,6 +70,12 @@ final class ProfileService {
             print("👤 [PROFILE] Profile onboardingVersion: \(currentProfile?.onboardingVersion.map { String($0) } ?? "nil")")
             print("👤 [PROFILE] Profile styleQuizCompleted: \(currentProfile?.styleQuizCompleted.map { String($0) } ?? "nil")")
             print("👤 [PROFILE] Profile departments: \(currentProfile?.departments ?? [])")
+
+            // Sync temperature unit preference from backend to UserDefaults
+            if let unit = currentProfile?.temperatureUnit {
+                UserDefaults.standard.set(unit, forKey: "temperatureUnit")
+                print("👤 [PROFILE] Synced temperatureUnit from backend: \(unit)")
+            }
         } catch {
             self.error = error
             print("👤 [PROFILE] ❌ Fetch profile error occurred")
@@ -130,6 +136,7 @@ struct ProfileUpdate: Encodable {
     var styleArchetypes: [String]?
     var brandPreferences: [String]?
     var onboardingVersion: Int?
+    var temperatureUnit: String?
 
     enum CodingKeys: String, CodingKey {
         case username
@@ -143,5 +150,6 @@ struct ProfileUpdate: Encodable {
         case styleArchetypes = "style_archetypes"
         case brandPreferences = "brand_preferences"
         case onboardingVersion = "onboarding_version"
+        case temperatureUnit = "temperature_unit"
     }
 }

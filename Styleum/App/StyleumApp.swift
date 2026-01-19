@@ -141,6 +141,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // Initialize PostHog analytics
         AnalyticsService.configure()
 
+        // Debug: Send test event to verify PostHog pipeline
+        AnalyticsService.track("app_launched_test")
+        print("📊 PostHog test event 'app_launched_test' sent")
+
         // Register custom fonts from asset catalog
         FontManager.registerFonts()
 
@@ -234,7 +238,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // Handle deep linking based on notification type
         if let type = userInfo["type"] as? String {
             switch type {
-            case "daily_outfit", "first_outfit", "streak_warning":
+            case "daily_outfit", "first_outfit", "streak_warning", "streak_at_risk":
                 // Navigate to Style Me tab
                 NotificationCenter.default.post(name: .navigateToDailyOutfit, object: nil)
             case "badge_unlock":

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
+    @AppStorage("temperatureUnit") private var temperatureUnit = "fahrenheit"
     private let wardrobeService = WardrobeService.shared
     private let profileService = ProfileService.shared
     private let gamificationService = GamificationService.shared
@@ -386,9 +387,14 @@ struct HomeScreen: View {
 
     /// Weather text - tries preGeneratedWeather first, then currentWeather
     private var weatherText: String {
-        if let weather = outfitRepo.preGeneratedWeather ?? outfitRepo.currentWeather {
-            return "\(Int(weather.tempFahrenheit))° \(weather.condition.lowercased())"
+        if let weather = outfitRepo.preGeneratedWeather {
+            print("🏠 [Home] weatherText → pre-generated: \(Int(weather.tempFahrenheit))°F (may differ from actual weather)")
+            return "\(weather.formattedTemperature(unit: temperatureUnit)) \(weather.condition.lowercased())"
+        } else if let weather = outfitRepo.currentWeather {
+            print("🏠 [Home] weatherText → currentWeather fallback: \(Int(weather.tempFahrenheit))°F")
+            return "\(weather.formattedTemperature(unit: temperatureUnit)) \(weather.condition.lowercased())"
         }
+        print("🏠 [Home] weatherText → no weather available")
         return "--°"
     }
 

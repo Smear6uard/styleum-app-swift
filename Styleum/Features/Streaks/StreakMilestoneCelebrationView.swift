@@ -251,7 +251,8 @@ struct StreakMilestoneCelebrationView: View {
 
 // MARK: - Supporting Types
 
-struct StreakMilestoneInfo {
+struct StreakMilestoneInfo: Identifiable {
+    let id = UUID()
     let days: Int
     let label: String
     let icon: String
@@ -377,21 +378,23 @@ private struct StreakConfettiPiece: Identifiable {
 
 struct StreakMilestoneCelebrationModifier: ViewModifier {
     @State private var milestoneInfo: StreakMilestoneInfo?
-    @State private var isPresented = false
 
     func body(content: Content) -> some View {
         content
             .onReceive(NotificationCenter.default.publisher(for: .streakMilestoneReached)) { notification in
                 if let info = notification.object as? StreakMilestoneInfo {
                     milestoneInfo = info
-                    isPresented = true
                 }
             }
-            .fullScreenCover(isPresented: $isPresented) {
-                if let info = milestoneInfo {
-                    StreakMilestoneCelebrationView(milestone: info, isPresented: $isPresented)
-                        .background(Color.clear)
-                }
+            .fullScreenCover(item: $milestoneInfo) { info in
+                StreakMilestoneCelebrationView(
+                    milestone: info,
+                    isPresented: Binding(
+                        get: { milestoneInfo != nil },
+                        set: { if !$0 { milestoneInfo = nil } }
+                    )
+                )
+                .background(Color.clear)
             }
     }
 }

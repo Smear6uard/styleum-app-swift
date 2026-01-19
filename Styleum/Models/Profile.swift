@@ -17,6 +17,7 @@ struct Profile: Codable, Identifiable, Equatable {
     var pushEnabled: Bool?
     var morningNotificationTime: String?
     var timezone: String?
+    var temperatureUnit: String?
 
     var displayName: String {
         firstName ?? "there"
@@ -37,6 +38,7 @@ struct Profile: Codable, Identifiable, Equatable {
         case pushEnabled = "push_enabled"
         case morningNotificationTime = "morning_notification_time"
         case timezone
+        case temperatureUnit = "temperature_unit"
     }
 
     init(from decoder: Decoder) throws {
@@ -55,5 +57,6 @@ struct Profile: Codable, Identifiable, Equatable {
         pushEnabled = try container.decodeIfPresent(Bool.self, forKey: .pushEnabled)
         morningNotificationTime = try container.decodeIfPresent(String.self, forKey: .morningNotificationTime)
         timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
+        temperatureUnit = try container.decodeIfPresent(String.self, forKey: .temperatureUnit)
     }
 }

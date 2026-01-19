@@ -196,6 +196,15 @@ struct WeatherContext: Codable, Equatable {
         case windMph = "wind_mph"
         case description
     }
+
+    /// Formats temperature in the specified unit
+    func formattedTemperature(unit: String = "fahrenheit") -> String {
+        if unit == "celsius" {
+            let celsius = (tempFahrenheit - 32) * 5 / 9
+            return "\(Int(celsius))°"
+        }
+        return "\(Int(tempFahrenheit))°"
+    }
 }
 
 // MARK: - ScoredOutfit Computed Properties

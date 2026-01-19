@@ -16,8 +16,8 @@ struct NotificationSettingsScreen: View {
     @State private var originalEnabled = true
     @State private var originalHour = 9
 
-    // Delivery hour options (4 AM to 11 AM)
-    private let hourOptions = Array(4...11)
+    // Delivery hour options (4 AM to 11 PM)
+    private let hourOptions = Array(4...23)
 
     /// Check if user has unsaved changes
     private var hasUnsavedChanges: Bool {

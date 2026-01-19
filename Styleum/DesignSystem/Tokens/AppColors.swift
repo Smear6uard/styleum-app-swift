@@ -64,6 +64,13 @@ enum AppColors {
     // Spatial Canvas (warm gradient for wardrobe/gallery views)
     static let canvasTop = Color(hex: "FDFCFB")      // Warm white
     static let canvasBottom = Color(hex: "F7F5F3")   // Slightly warmer
+
+    // Dark Canvas (Outfit Drop aesthetic)
+    static let canvasDark = Color(hex: "0A0A0A")
+    static let canvasTextPrimary = Color.white
+    static let canvasTextSecondary = Color.white.opacity(0.5)
+    static let canvasItemShadow = Color.black.opacity(0.3)
+    static let lightSection = Color(hex: "FAFAFA")
 }
 
 // MARK: - Gradient Presets

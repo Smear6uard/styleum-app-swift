@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Info for first-time milestones (first wardrobe item, first outfit, etc.)
-struct FirstMilestoneInfo {
+struct FirstMilestoneInfo: Identifiable {
+    let id = UUID()
     let type: FirstMilestoneType
     let title: String
     let subtitle: String
@@ -169,7 +170,6 @@ struct FirstMilestoneCelebrationView: View {
 
 struct FirstMilestoneCelebrationModifier: ViewModifier {
     @State private var milestoneInfo: FirstMilestoneInfo?
-    @State private var isPresented = false
 
     func body(content: Content) -> some View {
         content
@@ -181,7 +181,6 @@ struct FirstMilestoneCelebrationModifier: ViewModifier {
                     icon: "tshirt.fill",
                     iconColor: AppColors.brownPrimary
                 )
-                isPresented = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .firstOutfitGenerated)) { _ in
                 milestoneInfo = FirstMilestoneInfo(
@@ -191,7 +190,6 @@ struct FirstMilestoneCelebrationModifier: ViewModifier {
                     icon: "sparkles",
                     iconColor: Color(hex: "8B5CF6")
                 )
-                isPresented = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .firstAutoOutfitReady)) { _ in
                 milestoneInfo = FirstMilestoneInfo(
@@ -201,20 +199,20 @@ struct FirstMilestoneCelebrationModifier: ViewModifier {
                     icon: "sparkles",
                     iconColor: Color(hex: "8B5CF6")
                 )
-                isPresented = true
             }
-            .fullScreenCover(isPresented: $isPresented) {
-                if let info = milestoneInfo {
-                    FirstMilestoneCelebrationView(
-                        milestone: info,
-                        isPresented: $isPresented,
-                        onDismiss: info.type == .firstAutoOutfit ? {
-                            // Navigate to Style Me tab to view the outfit
-                            NotificationCenter.default.post(name: .navigateToStyleMe, object: nil)
-                        } : nil
-                    )
-                    .background(Color.clear)
-                }
+            .fullScreenCover(item: $milestoneInfo) { info in
+                FirstMilestoneCelebrationView(
+                    milestone: info,
+                    isPresented: Binding(
+                        get: { milestoneInfo != nil },
+                        set: { if !$0 { milestoneInfo = nil } }
+                    ),
+                    onDismiss: info.type == .firstAutoOutfit ? {
+                        // Navigate to Style Me tab to view the outfit
+                        NotificationCenter.default.post(name: .navigateToStyleMe, object: nil)
+                    } : nil
+                )
+                .background(Color.clear)
             }
     }
 }

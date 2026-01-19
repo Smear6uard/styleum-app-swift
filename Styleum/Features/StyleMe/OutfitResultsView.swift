@@ -32,6 +32,12 @@ struct OutfitResultsView: View {
     @State private var showWearError = false
     @State private var wearErrorMessage = ""
 
+    // Animation state
+    @State private var animateItems = false
+
+    // User preferences
+    @AppStorage("temperatureUnit") private var temperatureUnit = "fahrenheit"
+
     private var outfits: [ScoredOutfit] {
         // In inline mode (StyleMeScreen), read sessionOutfits directly to ensure proper observation
         // In modal mode (HomeScreen), use todaysOutfits which has fallback logic
@@ -55,64 +61,10 @@ struct OutfitResultsView: View {
         currentIndex >= outfits.count - 1
     }
 
-    // Animation state for staggered fade-in
-    @State private var animateItems = false
-
-    // MARK: - Item Categorization
-
-    /// Selects the hero item - outerwear if present, otherwise top/dress
-    private func selectHeroItem(from outfit: ScoredOutfit) -> OutfitItemRole? {
-        let items = outfit.items ?? []
-        let outerRoles = ["outerwear", "jacket", "coat", "blazer"]
-
-        // Prefer statement outerwear as hero
-        if let outer = items.first(where: { outerRoles.contains($0.role.lowercased()) }) {
-            return outer
-        }
-        // Otherwise, top or dress
-        return items.first(where: { ["top", "dress", "jumpsuit"].contains($0.role.lowercased()) })
-    }
-
-    /// Bottom item (pants, shorts, skirt)
-    private func bottomItem(from outfit: ScoredOutfit) -> OutfitItemRole? {
-        (outfit.items ?? []).first { $0.role.lowercased() == "bottom" }
-    }
-
-    /// Footwear item
-    private func footwearItem(from outfit: ScoredOutfit) -> OutfitItemRole? {
-        (outfit.items ?? []).first { $0.role.lowercased() == "footwear" }
-    }
-
-    /// Outerwear for row 2 (only if not used as hero)
-    private func row2Outerwear(from outfit: ScoredOutfit, heroItem: OutfitItemRole?) -> OutfitItemRole? {
-        let outerRoles = ["outerwear", "jacket", "coat", "blazer"]
-        guard let outer = (outfit.items ?? []).first(where: { outerRoles.contains($0.role.lowercased()) }) else {
-            return nil
-        }
-        // Don't show if it's already the hero
-        return outer.id == heroItem?.id ? nil : outer
-    }
-
-    /// Accessory items shown as thumbnails
-    private func accessoryItems(for outfit: ScoredOutfit) -> [OutfitItemRole] {
-        let primaryRoles = ["top", "bottom", "outerwear", "footwear", "jacket", "coat", "sweater", "dress", "jumpsuit"]
-        return (outfit.items ?? []).filter { item in
-            !primaryRoles.contains(item.role.lowercased())
-        }
-    }
-
-    /// Primary items for legacy stacked view (fallback)
-    private func primaryItems(for outfit: ScoredOutfit) -> [OutfitItemRole] {
-        let primaryRoles = ["top", "bottom", "outerwear", "footwear", "jacket", "coat", "sweater", "dress", "jumpsuit"]
-        return (outfit.items ?? []).filter { item in
-            primaryRoles.contains(item.role.lowercased())
-        }
-    }
-
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Background
+                // Background - light cream
                 Color(hex: "FAFAF8").ignoresSafeArea()
 
                 if isInlineMode && outfits.isEmpty {
@@ -202,7 +154,58 @@ struct OutfitResultsView: View {
         }
     }
 
-    // MARK: - Outfit Card (Full-Screen Editorial Grid)
+    // MARK: - Item Categorization
+
+    /// Picks outerwear or top/dress as hero item
+    private func selectHeroItem(from outfit: ScoredOutfit) -> OutfitItemRole? {
+        let items = outfit.items ?? []
+        // Prefer outerwear as hero if present
+        if let outerwear = items.first(where: { ["outerwear", "jacket", "coat", "blazer"].contains($0.role.lowercased()) }) {
+            return outerwear
+        }
+        // Otherwise use top or dress
+        return items.first(where: { ["top", "shirt", "blouse", "sweater", "dress", "jumpsuit"].contains($0.role.lowercased()) })
+    }
+
+    /// Returns bottom item (pants, shorts, skirt)
+    private func bottomItem(from outfit: ScoredOutfit) -> OutfitItemRole? {
+        let items = outfit.items ?? []
+        return items.first(where: { ["bottom", "pants", "shorts", "skirt", "jeans"].contains($0.role.lowercased()) })
+    }
+
+    /// Returns footwear item
+    private func footwearItem(from outfit: ScoredOutfit) -> OutfitItemRole? {
+        let items = outfit.items ?? []
+        return items.first(where: { ["footwear", "shoes", "sneakers", "boots", "heels"].contains($0.role.lowercased()) })
+    }
+
+    /// Returns outerwear if it's not already the hero
+    private func row2Outerwear(from outfit: ScoredOutfit, heroItem: OutfitItemRole?) -> OutfitItemRole? {
+        let items = outfit.items ?? []
+        let outerwear = items.first(where: { ["outerwear", "jacket", "coat", "blazer"].contains($0.role.lowercased()) })
+        // Only return if different from hero
+        if let outerwear = outerwear, outerwear.id != heroItem?.id {
+            return outerwear
+        }
+        return nil
+    }
+
+    /// Returns accessory items (non-primary)
+    private func accessoryItems(for outfit: ScoredOutfit) -> [OutfitItemRole] {
+        let items = outfit.items ?? []
+        let primaryRoles = ["top", "bottom", "outerwear", "footwear", "jacket", "coat", "sweater", "dress", "jumpsuit", "pants", "shorts", "skirt", "jeans", "shirt", "blouse", "shoes", "sneakers", "boots", "heels", "blazer"]
+        return items.filter { !primaryRoles.contains($0.role.lowercased()) }
+    }
+
+    /// Primary items for locked outfit display
+    private func primaryItems(for outfit: ScoredOutfit) -> [OutfitItemRole] {
+        let primaryRoles = ["top", "bottom", "outerwear", "footwear", "jacket", "coat", "sweater", "dress", "jumpsuit"]
+        return (outfit.items ?? []).filter { item in
+            primaryRoles.contains(item.role.lowercased())
+        }
+    }
+
+    // MARK: - Outfit Card (Light Editorial Layout)
 
     private func outfitCard(_ outfit: ScoredOutfit, geometry: GeometryProxy) -> some View {
         let heroItem = selectHeroItem(from: outfit)
@@ -210,68 +213,84 @@ struct OutfitResultsView: View {
         let footwear = footwearItem(from: outfit)
         let outerwear = row2Outerwear(from: outfit, heroItem: heroItem)
         let accessories = accessoryItems(for: outfit)
-        let hasRow2 = outerwear != nil || !accessories.isEmpty
 
         return ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
                 // Top spacing for floating bar
                 Spacer().frame(height: 100)
 
-                // MARK: - Editorial Header
+                // Editorial header
                 outfitHeader(outfit)
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, 24)
 
-                // MARK: - Hero Piece (40% height)
+                Spacer().frame(height: 24)
+
+                // Hero item (38% of screen height)
                 if let hero = heroItem {
                     OutfitItemCard(item: hero, size: .hero)
                         .frame(height: geometry.size.height * 0.38)
                         .padding(.horizontal, 24)
                         .opacity(animateItems ? 1 : 0)
-                        .scaleEffect(animateItems ? 1 : 0.95)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: animateItems)
+                        .scaleEffect(animateItems ? 1 : 0.96)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1), value: animateItems)
                 }
 
-                // MARK: - Row 1: Core Pieces (Bottom + Footwear)
+                Spacer().frame(height: 16)
+
+                // Row 1: Bottom + Footwear
                 HStack(spacing: 12) {
-                    if let bottomItem = bottom {
-                        OutfitItemCard(item: bottomItem, size: .medium)
-                            .opacity(animateItems ? 1 : 0)
-                            .scaleEffect(animateItems ? 1 : 0.95)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.15), value: animateItems)
+                    if let bottom = bottom {
+                        OutfitItemCard(item: bottom, size: .medium)
+                            .frame(height: 140)
                     }
-                    if let footwearItem = footwear {
-                        OutfitItemCard(item: footwearItem, size: .medium)
-                            .opacity(animateItems ? 1 : 0)
-                            .scaleEffect(animateItems ? 1 : 0.95)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.25), value: animateItems)
+                    if let footwear = footwear {
+                        OutfitItemCard(item: footwear, size: .medium)
+                            .frame(height: 140)
                     }
                 }
-                .frame(height: geometry.size.height * 0.18)
                 .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .opacity(animateItems ? 1 : 0)
+                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.2), value: animateItems)
 
-                // MARK: - Row 2: Optional (Outerwear + Accessories)
-                if hasRow2 {
-                    optionalRow2(outerwear: outerwear, accessories: accessories)
-                        .padding(.top, 16)
-                        .opacity(animateItems ? 1 : 0)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.35), value: animateItems)
+                // Row 2: Outerwear (if not hero) + Accessories
+                if outerwear != nil || !accessories.isEmpty {
+                    Spacer().frame(height: 12)
+
+                    HStack(spacing: 12) {
+                        if let outerwear = outerwear {
+                            OutfitItemCard(item: outerwear, size: .medium)
+                                .frame(height: 120)
+                        }
+                        ForEach(accessories.prefix(2), id: \.id) { accessory in
+                            OutfitItemCard(item: accessory, size: .small)
+                                .frame(width: 80, height: 80)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 24)
+                    .opacity(animateItems ? 1 : 0)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.3), value: animateItems)
                 }
 
-                // MARK: - Outfit Info
+                Spacer().frame(height: 24)
+
+                // Outfit info section
                 outfitInfoSection(outfit)
-                    .padding(.top, 24)
                     .padding(.horizontal, 24)
 
-                // MARK: - Action Buttons
+                Spacer().frame(height: 24)
+
+                // Action buttons
                 actionButtons(outfit: outfit)
-                    .padding(.top, 24)
                     .padding(.horizontal, 24)
 
                 // Page indicator
-                pageIndicator
-                    .padding(.top, 16)
-                    .padding(.bottom, 40)
+                if outfits.count > 1 {
+                    Spacer().frame(height: 20)
+                    pageIndicator
+                }
+
+                Spacer().frame(height: 40)
             }
         }
         .onAppear {
@@ -305,142 +324,32 @@ struct OutfitResultsView: View {
         }
     }
 
-    // MARK: - Optional Row 2 (Outerwear + Accessories)
-
-    private func optionalRow2(outerwear: OutfitItemRole?, accessories: [OutfitItemRole]) -> some View {
-        HStack(spacing: 12) {
-            if let outer = outerwear {
-                OutfitItemCard(item: outer, size: .medium)
-                    .frame(maxWidth: accessories.isEmpty ? .infinity : nil)
-            }
-
-            if !accessories.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(accessories.prefix(4), id: \.id) { accessory in
-                            OutfitItemCard(item: accessory, size: .small)
-                                .frame(width: 72, height: 72)
-                        }
-                        if accessories.count > 4 {
-                            Text("+\(accessories.count - 4)")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(AppColors.textSecondary)
-                                .frame(width: 40, height: 72)
-                        }
-                    }
-                }
-            }
-        }
-        .frame(height: outerwear != nil ? 100 : 72)
-        .padding(.horizontal, 24)
-    }
-
-    // MARK: - Editorial Header
+    // MARK: - Outfit Header
 
     private func outfitHeader(_ outfit: ScoredOutfit) -> some View {
-        VStack(spacing: 6) {
-            Text(outfit.aiHeadline)
-                .font(AppTypography.editorialSubhead)
+        VStack(spacing: 8) {
+            // Outfit name (all caps, tracked, bolder)
+            Text(outfit.aiHeadline.uppercased())
+                .font(.system(size: 20, weight: .bold))
+                .tracking(3)
                 .foregroundColor(AppColors.textPrimary)
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
 
+            // Match score and vibe
             HStack(spacing: 8) {
-                if let vibe = outfit.vibe ?? outfit.vibes.first {
-                    Text(vibe.capitalized)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                Text("·")
-                    .foregroundColor(AppColors.textMuted)
                 Text("\(outfit.score)% match")
-                    .font(.system(size: 14, weight: .medium))
+                Text("\u{00B7}")
+                Text(outfit.vibe ?? outfit.vibes.first?.lowercased() ?? "styled")
+            }
+            .font(.system(size: 12))
+            .foregroundColor(AppColors.textSecondary)
+
+            // Weather context
+            if let weather = outfitRepo.currentWeather ?? outfitRepo.preGeneratedWeather {
+                Text("\(weather.formattedTemperature(unit: temperatureUnit)) and \(weather.condition.lowercased())")
+                    .font(.system(size: 12))
                     .foregroundColor(AppColors.textSecondary)
-            }
-        }
-        .padding(.horizontal, 24)
-    }
-
-    // MARK: - Stacked Items View
-
-    private func stackedItemsView(items: [OutfitItemRole], geometry: GeometryProxy) -> some View {
-        let itemCount = items.count
-        let baseHeight: CGFloat = 140
-        let overlapOffset: CGFloat = 100
-
-        return ZStack(alignment: .top) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                itemCard(item, width: geometry.size.width - 48 - CGFloat(index * 16))
-                    .offset(y: CGFloat(index) * overlapOffset)
-                    .zIndex(Double(itemCount - index))
-            }
-        }
-        .frame(height: CGFloat(itemCount) * overlapOffset + baseHeight)
-    }
-
-    private func itemCard(_ item: OutfitItemRole, width: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            AsyncImage(url: URL(string: item.imageUrl ?? "")) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                case .failure, .empty:
-                    Rectangle()
-                        .fill(Color(hex: "F0F0F0"))
-                        .overlay(
-                            Image(systemName: "tshirt")
-                                .font(.system(size: 24))
-                                .foregroundColor(Color(hex: "CCCCCC"))
-                        )
-                @unknown default:
-                    Rectangle().fill(Color(hex: "F0F0F0"))
-                }
-            }
-            .frame(width: width, height: 140)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
-        }
-    }
-
-    // MARK: - Accessories Row
-
-    private func accessoriesRow(_ items: [OutfitItemRole]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("ACCESSORIES")
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(1)
-                .foregroundColor(AppColors.textMuted)
-                .padding(.horizontal, 24)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(items, id: \.id) { item in
-                        VStack(spacing: 6) {
-                            AsyncImage(url: URL(string: item.imageUrl ?? "")) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                case .failure, .empty:
-                                    Rectangle()
-                                        .fill(Color(hex: "F0F0F0"))
-                                @unknown default:
-                                    Rectangle().fill(Color(hex: "F0F0F0"))
-                                }
-                            }
-                            .frame(width: 64, height: 64)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-
-                            Text(item.role.capitalized)
-                                .font(.system(size: 11))
-                                .foregroundColor(AppColors.textSecondary)
-                        }
-                    }
-                }
-                .padding(.horizontal, 24)
             }
         }
     }
@@ -448,129 +357,75 @@ struct OutfitResultsView: View {
     // MARK: - Outfit Info Section
 
     private func outfitInfoSection(_ outfit: ScoredOutfit) -> some View {
-        VStack(spacing: 16) {
-            // Headline
-            Text(outfit.aiHeadline)
-                .font(AppTypography.editorialTitle)
-                .foregroundColor(AppColors.textPrimary)
-                .multilineTextAlignment(.center)
-
-            // Weather context
-            if let weather = outfitRepo.currentWeather {
-                HStack(spacing: 6) {
-                    Image(systemName: weatherIcon(for: weather.condition))
-                        .font(.system(size: 14))
-                    Text("\(Int(weather.tempFahrenheit))° and \(weather.condition.lowercased())")
-                }
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(AppColors.textSecondary)
-            }
-
-            // Why it works - only show if meaningful (not generic filler text)
+        VStack(spacing: 12) {
+            // Why it works description
             if let explanation = outfit.whyItWorks.ifMeaningful {
                 Text(explanation)
                     .font(.system(size: 15))
+                    .foregroundColor(AppColors.textPrimary)
+                    .lineSpacing(4)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 340)
+            }
+
+            // Styling tip with arrow prefix (NOT boxed)
+            if let tip = outfit.stylingTip?.ifMeaningful {
+                Text("\u{2192} \(tip)")
+                    .font(.system(size: 14).italic())
                     .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-            }
-
-            // Styling tip - premium branded callout card
-            if let tip = outfit.stylingTip?.ifMeaningful {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("STYLING TIP")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.7))
-                        .tracking(1.2)
-
-                    Text(tip)
-                        .font(.system(size: 14))
-                        .foregroundColor(.white)
-                        .lineSpacing(3)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(AppColors.brownPrimary)
-                .cornerRadius(12)
-                .padding(.top, 8)
+                    .frame(maxWidth: 320)
             }
         }
-    }
-
-    private func weatherIcon(for condition: String) -> String {
-        let lowered = condition.lowercased()
-        if lowered.contains("sun") || lowered.contains("clear") { return "sun.max.fill" }
-        if lowered.contains("cloud") { return "cloud.fill" }
-        if lowered.contains("rain") { return "cloud.rain.fill" }
-        if lowered.contains("snow") { return "snowflake" }
-        if lowered.contains("wind") { return "wind" }
-        return "cloud.sun.fill"
     }
 
     // MARK: - Action Buttons
 
     private func actionButtons(outfit: ScoredOutfit) -> some View {
         VStack(spacing: 12) {
-            // Share Look - Secondary style (prominent but not primary)
-            Button { shareOutfit(outfit) } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .medium))
-                    Text("Share Look")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .foregroundColor(AppColors.brownPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.white)
-                .cornerRadius(AppSpacing.radiusLg)
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppSpacing.radiusLg)
-                        .stroke(AppColors.brownPrimary, lineWidth: 1.5)
-                )
-            }
-
-            // Wear This - Primary style (espresso brown filled)
+            // Primary: WEAR THIS - Dark filled button
             Button { wearOutfit() } label: {
-                Text("Wear This")
-                    .font(.system(size: 16, weight: .semibold))
+                Text("WEAR THIS")
+                    .font(.system(size: 14, weight: .semibold))
+                    .tracking(1)
                     .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppColors.brownPrimary)
-                    .cornerRadius(AppSpacing.radiusLg)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(AppColors.textPrimary)
+                    .cornerRadius(12)
+            }
+            .buttonStyle(ScaleButtonStyle())
+
+            // Secondary: SHARE LOOK - White outlined button
+            Button { shareOutfit(outfit) } label: {
+                Text("SHARE LOOK")
+                    .font(.system(size: 14, weight: .semibold))
+                    .tracking(1)
+                    .foregroundColor(AppColors.textPrimary)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(AppColors.textPrimary, lineWidth: 1.5)
+                    )
             }
 
-            // Tertiary actions row
-            HStack(spacing: 12) {
+            // Tertiary: Skip | Refresh
+            HStack(spacing: 24) {
                 Button { skipOutfit() } label: {
                     Text(isLastOutfit ? "Done" : "Skip")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(AppColors.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: "F5F5F5"))
-                        .cornerRadius(AppSpacing.radiusMd)
                 }
 
                 Button { showRegenerateSheet = true } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 13, weight: .medium))
-                        Text("Refresh")
-                    }
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color(hex: "F5F5F5"))
-                    .cornerRadius(AppSpacing.radiusMd)
+                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
             }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(Color(hex: "666666"))
         }
     }
 
-    // MARK: - Page Indicator
+    // MARK: - Page Indicator (Light Theme)
 
     private var pageIndicator: some View {
         HStack(spacing: 6) {
@@ -582,10 +437,11 @@ struct OutfitResultsView: View {
         }
     }
 
-    // MARK: - Floating Top Bar
+    // MARK: - Floating Top Bar (Light Style)
 
     private var floatingTopBar: some View {
         HStack {
+            // X button - dark on light background
             Button {
                 HapticManager.shared.light()
                 if isInlineMode {
@@ -606,6 +462,7 @@ struct OutfitResultsView: View {
 
             Spacer()
 
+            // Page counter
             if !outfits.isEmpty {
                 Text("\(currentIndex + 1) / \(outfits.count)")
                     .font(.system(size: 13, weight: .semibold))
@@ -613,11 +470,12 @@ struct OutfitResultsView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(.ultraThinMaterial)
-                    .cornerRadius(AppSpacing.radiusXl)
+                    .cornerRadius(20)
             }
 
             Spacer()
 
+            // Heart button
             Button {
                 HapticManager.shared.medium()
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -665,6 +523,7 @@ struct OutfitResultsView: View {
         VStack(spacing: 20) {
             ProgressView()
                 .scaleEffect(1.2)
+                .tint(AppColors.textSecondary)
             Text("Loading your looks...")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundColor(AppColors.textSecondary)
@@ -676,7 +535,7 @@ struct OutfitResultsView: View {
         VStack(spacing: 16) {
             Image(systemName: "sparkles")
                 .font(.system(size: 48, weight: .medium))
-                .foregroundColor(AppColors.textMuted)
+                .foregroundColor(AppColors.textSecondary)
             Text("No looks yet")
                 .font(.system(size: 18, weight: .medium))
                 .foregroundColor(AppColors.textPrimary)

@@ -92,21 +92,24 @@ struct StreakCalendar: View {
 
     /// Get dates for the current week (Monday to Sunday)
     private var weekDates: [Date] {
-        let today = Date()
-        var dates: [Date] = []
+        let today = calendar.startOfDay(for: Date())
 
-        // Find Monday of current week
-        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)
-        components.weekday = 2 // Monday
-        guard let monday = calendar.date(from: components) else { return [] }
+        // Get current weekday (1 = Sunday, 2 = Monday, ..., 7 = Saturday)
+        let weekday = calendar.component(.weekday, from: today)
 
-        for i in 0..<7 {
-            if let date = calendar.date(byAdding: .day, value: i, to: monday) {
-                dates.append(date)
-            }
+        // Calculate days since Monday (Monday = 2)
+        // If weekday is 1 (Sunday), days since Monday = 6
+        // If weekday is 2 (Monday), days since Monday = 0
+        // If weekday is 7 (Saturday), days since Monday = 5
+        let daysSinceMonday = (weekday + 5) % 7
+
+        guard let monday = calendar.date(byAdding: .day, value: -daysSinceMonday, to: today) else {
+            return []
         }
 
-        return dates
+        return (0..<7).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: monday)
+        }
     }
 
     /// Check if today has activity
@@ -116,8 +119,27 @@ struct StreakCalendar: View {
 
     /// Get activity for a specific date
     private func activityForDate(_ date: Date) -> DayActivity? {
-        gamificationService.activityHistory.first { activity in
-            calendar.isDate(activity.date, inSameDayAs: date)
+        // API dates are in UTC, so extract their components using UTC calendar
+        var utcCalendar = Calendar.current
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+
+        // Local calendar date components (what day the calendar is showing)
+        let targetComponents = calendar.dateComponents([.year, .month, .day], from: date)
+
+        #if DEBUG
+        print("[StreakCalendar] Looking for: \(targetComponents.year!)-\(targetComponents.month!)-\(targetComponents.day!)")
+        for activity in gamificationService.activityHistory {
+            let activityComponents = utcCalendar.dateComponents([.year, .month, .day], from: activity.date)
+            print("[StreakCalendar]   Activity: \(activityComponents.year!)-\(activityComponents.month!)-\(activityComponents.day!) (raw: \(activity.date))")
+        }
+        #endif
+
+        return gamificationService.activityHistory.first { activity in
+            // Extract API date components in UTC (how they were stored)
+            let activityComponents = utcCalendar.dateComponents([.year, .month, .day], from: activity.date)
+            return targetComponents.year == activityComponents.year &&
+                   targetComponents.month == activityComponents.month &&
+                   targetComponents.day == activityComponents.day
         }
     }
 }
@@ -135,11 +157,16 @@ private struct DayCell: View {
     private let calendar = Calendar.current
 
     private var hasActivity: Bool {
-        activity?.hasActivity == true
+        // Include XP earned in activity check - fixes calendar not showing XP-only days
+        (activity?.hasActivity == true) || (activity?.xpEarned ?? 0) > 0
     }
 
     private var xpEarned: Int {
         activity?.xpEarned ?? 0
+    }
+
+    private var outfitsWorn: Int {
+        activity?.outfitsWorn ?? 0
     }
 
     var body: some View {
@@ -156,8 +183,8 @@ private struct DayCell: View {
                     Circle()
                         .strokeBorder(AppColors.border, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                         .frame(width: 36, height: 36)
-                } else if hasActivity {
-                    // Active day - black fill with checkmark
+                } else if outfitsWorn > 0 {
+                    // Streak day - black fill with checkmark/flame
                     Circle()
                         .fill(AppColors.black)
                         .frame(width: 36, height: 36)
@@ -165,6 +192,16 @@ private struct DayCell: View {
                             Image(systemName: isToday ? "flame.fill" : "checkmark")
                                 .font(.system(size: isToday ? 14 : 13, weight: .bold))
                                 .foregroundColor(.white)
+                        )
+                } else if hasActivity {
+                    // XP earned but no outfit worn - gray with dot
+                    Circle()
+                        .fill(AppColors.backgroundTertiary)
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Circle()
+                                .fill(AppColors.textMuted)
+                                .frame(width: 6, height: 6)
                         )
                 } else if isToday {
                     // Today incomplete - ring outline with pulse
@@ -178,7 +215,7 @@ private struct DayCell: View {
                         )
                         .scaleEffect(isPulsing ? 1.08 : 1.0)
                 } else {
-                    // Past day without activity - gray fill
+                    // Past day without activity - gray fill with date
                     Circle()
                         .fill(AppColors.backgroundTertiary)
                         .frame(width: 36, height: 36)
@@ -191,14 +228,14 @@ private struct DayCell: View {
             }
 
             // XP earned (or "today" label)
-            if isToday && !hasActivity {
+            if isToday && outfitsWorn == 0 && !hasActivity {
                 Text("today")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundColor(AppColors.textMuted)
-            } else if hasActivity && xpEarned > 0 {
+            } else if xpEarned > 0 {
                 Text("+\(xpEarned)")
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundColor(AppColors.success)
+                    .foregroundColor(outfitsWorn > 0 ? AppColors.success : AppColors.textMuted)
             } else {
                 Text(" ")
                     .font(.system(size: 10))
@@ -218,17 +255,24 @@ struct CompactStreakCalendar: View {
         HStack(spacing: 8) {
             ForEach(lastSevenDays, id: \.self) { date in
                 let activity = activityForDate(date)
-                let hasActivity = activity?.hasActivity == true
+                let outfitsWorn = activity?.outfitsWorn ?? 0
+                // Include XP earned in activity check - fixes calendar not showing XP-only days
+                let hasActivity = (activity?.hasActivity == true) || (activity?.xpEarned ?? 0) > 0
                 let isToday = calendar.isDateInToday(date)
 
                 Circle()
-                    .fill(hasActivity ? AppColors.black : AppColors.backgroundTertiary)
+                    .fill(outfitsWorn > 0 ? AppColors.black : AppColors.backgroundTertiary)
                     .frame(width: 24, height: 24)
                     .overlay {
-                        if hasActivity {
+                        if outfitsWorn > 0 {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.white)
+                        } else if hasActivity {
+                            // XP but no outfit - small dot
+                            Circle()
+                                .fill(AppColors.textMuted)
+                                .frame(width: 4, height: 4)
                         } else if isToday {
                             Circle()
                                 .strokeBorder(AppColors.black, lineWidth: 2)
@@ -245,8 +289,19 @@ struct CompactStreakCalendar: View {
     }
 
     private func activityForDate(_ date: Date) -> DayActivity? {
-        gamificationService.activityHistory.first { activity in
-            calendar.isDate(activity.date, inSameDayAs: date)
+        // API dates are in UTC, so extract their components using UTC calendar
+        var utcCalendar = Calendar.current
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+
+        // Local calendar date components (what day the calendar is showing)
+        let targetComponents = calendar.dateComponents([.year, .month, .day], from: date)
+
+        return gamificationService.activityHistory.first { activity in
+            // Extract API date components in UTC (how they were stored)
+            let activityComponents = utcCalendar.dateComponents([.year, .month, .day], from: activity.date)
+            return targetComponents.year == activityComponents.year &&
+                   targetComponents.month == activityComponents.month &&
+                   targetComponents.day == activityComponents.day
         }
     }
 }

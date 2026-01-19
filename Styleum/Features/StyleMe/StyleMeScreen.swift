@@ -5,6 +5,7 @@ import UIKit
 
 struct StyleMeScreen: View {
     @Environment(AppCoordinator.self) var coordinator
+    @AppStorage("temperatureUnit") private var temperatureUnit = "fahrenheit"
     private let wardrobeService = WardrobeService.shared
     private let outfitRepo = OutfitRepository.shared
     private let api = StyleumAPI.shared
@@ -205,7 +206,7 @@ struct StyleMeScreen: View {
 
                 // Weather context - subtle, integrated
                 if let weather = outfitRepo.currentWeather ?? outfitRepo.preGeneratedWeather {
-                    Text("\(Int(weather.tempFahrenheit))° and \(weather.condition.lowercased())")
+                    Text("\(weather.formattedTemperature(unit: temperatureUnit)) and \(weather.condition.lowercased())")
                         .font(.system(size: 14))
                         .foregroundColor(AppColors.textMuted)
                 }

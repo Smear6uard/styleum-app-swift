@@ -233,6 +233,7 @@ final class GamificationService {
 
         do {
             let stats = try await api.getGamificationStats()
+            print("[DEBUG] Gamification stats - streak_freezes: \(stats.streakFreezes)")
 
             let oldLevel = level
 
@@ -299,6 +300,10 @@ final class GamificationService {
 
         do {
             activityHistory = try await api.getActivityHistory(days: days)
+            print("[DEBUG] Activity history received: \(activityHistory.count) days")
+            for activity in activityHistory {
+                print("[DEBUG] Date: \(activity.date), hasActivity: \(activity.hasActivity), xpEarned: \(activity.xpEarned), outfitsWorn: \(activity.outfitsWorn)")
+            }
         } catch {
             print("Failed to fetch activity history: \(error)")
         }
@@ -538,7 +543,8 @@ struct StreakMilestone {
     let icon: String
 }
 
-struct LevelUpInfo {
+struct LevelUpInfo: Identifiable {
+    let id = UUID()
     let newLevel: Int
     let oldLevel: Int
     let levelTitle: String

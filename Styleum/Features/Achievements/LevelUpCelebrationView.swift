@@ -357,21 +357,23 @@ private struct ConfettiPiece: Identifiable {
 
 struct LevelUpCelebrationModifier: ViewModifier {
     @State private var levelUpInfo: LevelUpInfo?
-    @State private var isPresented = false
 
     func body(content: Content) -> some View {
         content
             .onReceive(NotificationCenter.default.publisher(for: .levelUp)) { notification in
                 if let info = notification.object as? LevelUpInfo {
                     levelUpInfo = info
-                    isPresented = true
                 }
             }
-            .fullScreenCover(isPresented: $isPresented) {
-                if let info = levelUpInfo {
-                    LevelUpCelebrationView(levelUpInfo: info, isPresented: $isPresented)
-                        .background(Color.clear)
-                }
+            .fullScreenCover(item: $levelUpInfo) { info in
+                LevelUpCelebrationView(
+                    levelUpInfo: info,
+                    isPresented: Binding(
+                        get: { levelUpInfo != nil },
+                        set: { if !$0 { levelUpInfo = nil } }
+                    )
+                )
+                .background(Color.clear)
             }
     }
 }

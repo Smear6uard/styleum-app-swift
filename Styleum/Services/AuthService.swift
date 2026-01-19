@@ -432,11 +432,11 @@ final class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate,
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-            // This shouldn't happen in a properly configured app
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else {
             fatalError("No window scene available for Apple Sign In")
         }
-        return windowScene.windows.first ?? UIWindow(windowScene: windowScene)
+        return window
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {

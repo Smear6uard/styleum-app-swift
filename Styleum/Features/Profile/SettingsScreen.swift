@@ -2,8 +2,10 @@ import SwiftUI
 
 struct SettingsScreen: View {
     @Environment(AppCoordinator.self) private var coordinator
+    @AppStorage("temperatureUnit") private var temperatureUnit = "fahrenheit"
     @State private var tierManager = TierManager.shared
     @State private var subscriptionManager = SubscriptionManager.shared
+    @State private var profileService = ProfileService.shared
     @State private var isRestoring = false
     @State private var showSignOutConfirmation = false
     @State private var isSigningOut = false
@@ -12,18 +14,22 @@ struct SettingsScreen: View {
     @State private var showSignOutGlow = false
     @State private var showProScreenshot = false
     @State private var showRetakeStyleQuizConfirmation = false
+    @State private var showTemperatureUnitPicker = false
 
     var body: some View {
         List {
             Section("Preferences") {
                 ListRow(
                     title: "Temperature Unit",
-                    action: {}
+                    action: {
+                        HapticManager.shared.light()
+                        showTemperatureUnitPicker = true
+                    }
                 ) {
                     Image(symbol: .sunMax)
                         .foregroundColor(AppColors.textSecondary)
                 } trailing: {
-                    Text("°F")
+                    Text(temperatureUnit == "celsius" ? "°C" : "°F")
                         .foregroundColor(AppColors.textSecondary)
                 }
 
@@ -349,6 +355,18 @@ struct SettingsScreen: View {
         }
         .sheet(isPresented: $showProScreenshot) {
             ProUpgradeScreenshotView()
+        }
+        .confirmationDialog("Temperature Unit", isPresented: $showTemperatureUnitPicker) {
+            Button("°F (Fahrenheit)") { updateTemperatureUnit("fahrenheit") }
+            Button("°C (Celsius)") { updateTemperatureUnit("celsius") }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func updateTemperatureUnit(_ unit: String) {
+        temperatureUnit = unit  // Save to UserDefaults immediately via @AppStorage
+        Task {
+            try? await profileService.updateProfile(ProfileUpdate(temperatureUnit: unit))
         }
     }
 

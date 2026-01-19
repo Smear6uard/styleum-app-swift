@@ -403,6 +403,15 @@ struct StreakRestoredToast: View {
     }
 }
 
+// MARK: - Repaired Streak Info
+
+/// Info for streak repair celebration (Identifiable for fullScreenCover(item:))
+struct RepairedStreakInfo: Identifiable {
+    let id = UUID()
+    let streak: Int
+    let xpSpent: Int
+}
+
 // MARK: - Streak Protection Modifier
 
 /// View modifier that monitors streak state and shows appropriate prompts.
@@ -415,8 +424,7 @@ struct StreakProtectionModifier: ViewModifier {
 
     // Streak repair state
     @State private var showRepairPrompt = false
-    @State private var showRepairedCelebration = false
-    @State private var repairedStreakInfo: (streak: Int, xpSpent: Int)?
+    @State private var repairedStreakInfo: RepairedStreakInfo?
 
     func body(content: Content) -> some View {
         content
@@ -435,8 +443,7 @@ struct StreakProtectionModifier: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: .streakRepaired)) { notification in
                 // Show celebration after successful repair
                 if let response = notification.object as? RepairStreakResponse {
-                    repairedStreakInfo = (streak: response.restoredStreak, xpSpent: response.xpSpent)
-                    showRepairedCelebration = true
+                    repairedStreakInfo = RepairedStreakInfo(streak: response.restoredStreak, xpSpent: response.xpSpent)
                 }
             }
             .fullScreenCover(isPresented: $showFreezePrompt) {
@@ -466,7 +473,7 @@ struct StreakProtectionModifier: ViewModifier {
             .fullScreenCover(isPresented: $showRepairPrompt) {
                 StreakRepairView(
                     onRepairComplete: { streak, xpSpent in
-                        repairedStreakInfo = (streak: streak, xpSpent: xpSpent)
+                        repairedStreakInfo = RepairedStreakInfo(streak: streak, xpSpent: xpSpent)
                         // Celebration will be shown via notification
                     },
                     onStartFresh: {
@@ -476,18 +483,19 @@ struct StreakProtectionModifier: ViewModifier {
                 )
                 .background(Color.clear)
             }
-            .fullScreenCover(isPresented: $showRepairedCelebration) {
-                if let info = repairedStreakInfo {
-                    StreakRepairedCelebrationView(
-                        restoredStreak: info.streak,
-                        xpSpent: info.xpSpent,
-                        onContinue: {
-                            repairedStreakInfo = nil
-                        },
-                        isPresented: $showRepairedCelebration
+            .fullScreenCover(item: $repairedStreakInfo) { info in
+                StreakRepairedCelebrationView(
+                    restoredStreak: info.streak,
+                    xpSpent: info.xpSpent,
+                    onContinue: {
+                        // No need to clear - dismissing the cover will set repairedStreakInfo to nil
+                    },
+                    isPresented: Binding(
+                        get: { repairedStreakInfo != nil },
+                        set: { if !$0 { repairedStreakInfo = nil } }
                     )
-                    .background(Color.clear)
-                }
+                )
+                .background(Color.clear)
             }
             .overlay(alignment: .top) {
                 StreakRestoredToast(

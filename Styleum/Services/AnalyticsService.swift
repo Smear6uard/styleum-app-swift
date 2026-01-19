@@ -8,8 +8,9 @@ enum AnalyticsService {
 
     static func configure() {
         let config = PostHogConfig(apiKey: Config.postHogAPIKey, host: "https://app.posthog.com")
+        config.debug = true  // Print to console when events are queued/sent
         PostHogSDK.shared.setup(config)
-        print("📊 [ANALYTICS] PostHog configured")
+        print("📊 [ANALYTICS] PostHog configured with debug=true")
     }
 
     // MARK: - User Identity
